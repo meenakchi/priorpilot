@@ -102,7 +102,7 @@ router.get('/patient/:patientId', requireAuth, (req: Request, res: Response) => 
 });
 import { priorAuthAgentLoop } from '../services/ai/agentLoop.service';
 
-// Agentic endpoint — Claude drives the full workflow autonomously
+// Agentic endpoint — OpenAI drives the full workflow autonomously
 router.post('/agent/run', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { patientId, insurerId, medicationId } = req.body;

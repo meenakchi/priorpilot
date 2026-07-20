@@ -1,13 +1,8 @@
 import { Response } from 'express';
-import Anthropic from '@anthropic-ai/sdk';
-import { env } from '../../config/env';
 import { logger } from '../../utils/logger';
 import { demoFHIRService } from '../ehr/demoFHIR.service';
-import { claudeService } from './claude.service';
+import { openaiService } from './openai.service';
 import { submissionService } from '../insurer/submission.service';
-// import { PA_TOOLS_MINIMAL } from './tools';
-
-const client = new Anthropic({ apiKey: env.anthropicApiKey });
 
 export async function streamAgentWorkflow(
   patientId: string,
@@ -34,8 +29,8 @@ export async function streamAgentWorkflow(
       conditions: snapshot.conditions.length,
     });
 
-    send('status', { step: 'analyzing', message: 'Claude analyzing clinical data...' });
-    const form = await claudeService.draftPriorAuthForm(
+    send('status', { step: 'analyzing', message: 'OpenAI analyzing clinical data...' });
+    const form = await openaiService.draftPriorAuthForm(
       snapshot.patient,
       snapshot.medications,
       snapshot.conditions,

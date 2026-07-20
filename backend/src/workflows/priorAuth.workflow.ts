@@ -5,7 +5,7 @@ import { tokenVaultService } from '../services/auth/tokenVault.service';
 import { cibaService } from '../services/auth/ciba.service';
 import { demoFHIRService } from '../services/ehr/demoFHIR.service';
 import { createFHIRService } from '../services/ehr/fhir.service';
-import { claudeService } from '../services/ai/claude.service';
+import { openaiService } from '../services/ai/openai.service';
 import { submissionService } from '../services/insurer/submission.service';
 import { insurerRequirementsService } from '../services/insurer/requirements.service';
 
@@ -28,7 +28,7 @@ export class PriorAuthWorkflow {
    * 2. CIBA step-up consent from patient
    * 3. Get FHIR token from Token Vault (or use demo)
    * 4. Fetch clinical data from Epic FHIR
-   * 5. Claude analyzes & drafts PA form
+   * 5. OpenAI analyzes & drafts PA form
    * 6. Submit to insurer
    */
   async execute(input: WorkflowInput): Promise<PriorAuthRequest> {
@@ -108,11 +108,11 @@ export class PriorAuthWorkflow {
       }
       requestStore.set(requestId, { ...request });
 
-      // Step 4: Claude drafts the PA form
+      // Step 4: OpenAI drafts the PA form
       this.updateStatus(requestId, 'analyzing');
-      logger.info('[Workflow] Claude is analyzing clinical records...');
+      logger.info('[Workflow] OpenAI is analyzing clinical records...');
 
-      const form = await claudeService.draftPriorAuthForm(
+      const form = await openaiService.draftPriorAuthForm(
         patient,
         medications,
         conditions,

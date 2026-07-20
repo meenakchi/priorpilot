@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { priorAuthWorkflow } from '../workflows/priorAuth.workflow';
-import { claudeService } from '../services/ai/claude.service';
+import { openaiService } from '../services/ai/openai.service';
 import { demoFHIRService } from '../services/ehr/demoFHIR.service';
 import { submissionService } from '../services/insurer/submission.service';
 import { insurerRequirementsService } from '../services/insurer/requirements.service';
@@ -127,7 +127,7 @@ export async function getDraftForm(
     }
 
     const snapshot = await demoFHIRService.getClinicalSnapshot(patientId);
-    const form = await claudeService.draftPriorAuthForm(
+    const form = await openaiService.draftPriorAuthForm(
       snapshot.patient,
       snapshot.medications,
       snapshot.conditions,
