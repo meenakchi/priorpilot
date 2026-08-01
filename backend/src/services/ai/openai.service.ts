@@ -5,10 +5,18 @@ import { FHIRCondition, FHIRMedication, PatientContext, PriorAuthForm } from '..
 import { buildPriorAuthPrompt, buildJustificationPrompt } from './promptTemplates';
 
 export class OpenAIService {
-  private client: OpenAI;
+  private client?: OpenAI;
 
-  constructor() {
-    this.client = new OpenAI({ apiKey: env.openaiApiKey });
+  private ensureClient(): OpenAI {
+    if (!env.openaiApiKey) {
+      throw new Error('Missing OpenAI API key. Set OPENAI_API_KEY in backend/.env or your shell before invoking AI routes.');
+    }
+
+    if (!this.client) {
+      this.client = new OpenAI({ apiKey: env.openaiApiKey });
+    }
+
+    return this.client;
   }
 
   async draftPriorAuthForm(
@@ -21,8 +29,9 @@ export class OpenAIService {
 
     const targetMed = medications.find((m) => m.id === targetMedicationId) || medications[0];
     const prompt = buildPriorAuthPrompt(patient, targetMed, conditions);
+    const client = this.ensureClient();
 
-    const response = await this.client.chat.completions.create({
+    const response = await client.chat.completions.create({
       model: env.openaiModel,
       temperature: 0.2,
       max_tokens: 2000,
@@ -60,7 +69,8 @@ Never fabricate clinical data — only use what is provided in the FHIR records.
     logger.info('[OpenAI] Generating clinical justification narrative');
 
     const prompt = buildJustificationPrompt(patient, medication, conditions);
-    const response = await this.client.chat.completions.create({
+    const client = this.ensureClient();
+    const response = await client.chat.completions.create({
       model: env.openaiModel,
       temperature: 0.2,
       max_tokens: 1500,
