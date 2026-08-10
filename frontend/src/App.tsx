@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import FloatingSpiky from "./assets/Weird_Bubble_-_Copy_1-1440x765-removebg-preview.png";
+import "./App.css";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -82,19 +84,20 @@ const STATUS_LABELS: Record<WorkflowStatus, string> = {
 // ─── Design tokens matching landing page ──────────────────────────────────────
 
 const T = {
-  bg:          "#f5f0e8",
-  card:        "#ffffff",
-  border:      "#e8e3da",
-  borderLight: "#f0ece3",
-  dark:        "#1a1a2e",
-  muted:       "#888888",
-  coral:       "#f07070",
-  yellow:      "#f0c040",
-  green:       "#5ac87a",
-  blue:        "#7bb8f0",
-  inputBg:     "#faf7f2",
-  serif:       "'Georgia', 'Times New Roman', serif" as const,
-  sans:        "system-ui, -apple-system, sans-serif" as const,
+  bg:          "#F6F3EB",
+  card:        "#FFFFFF",
+  border:      "#E4DECD",
+  borderLight: "#EDE8DA",
+  dark:        "#1B1B18",
+  muted:       "#726C5E",
+  coral:       "#B5402A",
+  yellow:      "#D9A441",
+  green:       "#5C7A5A",
+  blue:        "#33465C",
+  inputBg:     "#FFFFFF",
+  serif:       "'Space Grotesk', 'Helvetica Neue', sans-serif" as const,
+  sans:        "'Inter', 'Segoe UI', sans-serif" as const,
+  mono:        "'IBM Plex Mono', 'Menlo', monospace" as const,
 };
 
 const cardStyle: React.CSSProperties = {
@@ -197,6 +200,30 @@ function Badge({ status }: { status: WorkflowStatus }) {
   );
 }
 
+// ─── Pulse signature ────────────────────────────────────────────────────────
+// The one recurring motif: a clinical pulse line that resolves into an
+// approval check. Used in the hero, and again wherever the app is "working".
+
+function PulseSignature({ animate = true, height = 200 }: { animate?: boolean; height?: number }) {
+  return (
+    <svg viewBox="0 0 400 200" style={{ width: "100%", height, display: "block", overflow: "visible" }}>
+      <path
+        d="M8,120 L92,120 L112,72 L136,168 L160,32 L182,120 L248,120 L266,96 L282,120 L340,120"
+        fill="none"
+        stroke={T.coral}
+        strokeWidth="4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={animate ? "pulse-line" : undefined}
+      />
+      <g className={animate ? "pulse-check" : undefined}>
+        <circle cx="356" cy="120" r="30" fill={T.green} />
+        <path d="M344,120 L353,129 L370,110" fill="none" stroke="#fff" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" />
+      </g>
+    </svg>
+  );
+}
+
 // ─── Ticker ───────────────────────────────────────────────────────────────────
 
 const TICKER_ITEMS = [
@@ -213,7 +240,7 @@ const TICKER_ITEMS = [
 function Ticker() {
   const items = [...TICKER_ITEMS, ...TICKER_ITEMS];
   return (
-    <div style={{ background: T.dark, overflow: "hidden", position: "relative", zIndex: 5, padding: "13px 0" }}>
+    <div style={{ background: T.coral, overflow: "hidden", position: "relative", zIndex: 5, padding: "16px 0", transform: "rotate(-1deg)", margin: "8px 0" }}>
       <style>{`
         @keyframes tickerScroll {
           0%   { transform: translateX(0); }
@@ -221,17 +248,16 @@ function Ticker() {
         }
         .ticker-track {
           display: flex;
-          animation: tickerScroll 28s linear infinite;
+          animation: tickerScroll 24s linear infinite;
           width: max-content;
         }
         .ticker-track:hover { animation-play-state: paused; }
       `}</style>
       <div className="ticker-track">
         {items.map((label, i) => (
-          <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "13px", fontWeight: "600", fontFamily: T.sans, whiteSpace: "nowrap", padding: "0 28px" }}>
-            <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: T.green, flexShrink: 0, display: "inline-block" }} />
+          <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: "10px", color: "#fff", fontSize: "17px", fontWeight: "800", fontFamily: T.serif, whiteSpace: "nowrap", padding: "0 26px" }}>
             {label}
-            <span style={{ color: "#555", marginLeft: "6px" }}>|</span>
+            <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#fff", flexShrink: 0, opacity: 0.7 }} />
           </span>
         ))}
       </div>
@@ -251,7 +277,7 @@ function StatsSection() {
   return (
     <div style={{ position: "relative", zIndex: 5, display: "flex", justifyContent: "center", gap: "20px", flexWrap: "wrap", padding: "0 24px 52px" }}>
       {STATS.map((s) => (
-        <div key={s.value} style={{ background: T.card, border: `1.5px solid ${T.border}`, borderRadius: "18px", padding: "32px 44px", minWidth: "180px", textAlign: "center", boxShadow: "0 2px 16px rgba(26,26,46,0.06)" }}>
+        <div key={s.value} style={{ background: T.card, border: `1.5px solid ${T.border}`, borderRadius: "18px", padding: "32px 44px", minWidth: "180px", textAlign: "center", boxShadow: "0 2px 16px rgba(43,38,34,0.05)" }}>
           <div style={{ fontSize: "40px", fontWeight: "900", color: T.dark, fontFamily: T.serif, letterSpacing: "-0.03em", lineHeight: 1.1 }}>{s.value}</div>
           <div style={{ fontSize: "13px", color: T.muted, marginTop: "6px", fontFamily: T.sans }}>{s.label}</div>
         </div>
@@ -260,51 +286,51 @@ function StatsSection() {
   );
 }
 
-// ─── How it works section ─────────────────────────────────────────────────────
+// ─── Expertise section (image-icon cards, like the reference) ────────────────
 
 const HOW_IT_WORKS = [
   {
-    color: "#fce7f3",
-    iconColor: "#9d174d",
+    tint: "#EDE0D0",
+    iconColor: T.coral,
     title: "CIBA Step-up Consent",
-    desc: "Patient approves on their device before a single byte of health data is accessed. Auth0 CIBA delivers a push notification; the agent waits for a cryptographic approval.",
+    desc: "Patient approves on their device before a single byte of health data is accessed.",
     icon: (
-      <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+      <svg width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
         <path d="M13.73 21a2 2 0 0 1-3.46 0" />
       </svg>
     ),
   },
   {
-    color: "#dbeafe",
-    iconColor: "#1e40af",
+    tint: "#E4E7DC",
+    iconColor: T.blue,
     title: "Epic FHIR R4 Access",
-    desc: "Auth0 Token Vault holds the SMART token. Records pulled live from Epic (conditions, medications, observations, lab results) with no credentials stored in PriorAgent.",
+    desc: "Records pulled live from Epic via Auth0 Token Vault, no credentials ever stored in PriorAgent.",
     icon: (
-      <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+      <svg width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
         <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
       </svg>
     ),
   },
   {
-    color: "#dcfce7",
-    iconColor: "#166534",
+    tint: "#E8E0EA",
+    iconColor: "#8A6BA8",
     title: "Claude AI Analysis",
-    desc: "Claude reads the full clinical picture and drafts a complete, insurer-specific prior auth form: ICD-10 codes, clinical justification, NDC, prior treatments, all in seconds.",
+    desc: "Claude reads the full clinical picture and drafts a complete, insurer-specific prior auth form in seconds.",
     icon: (
-      <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+      <svg width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
         <circle cx="12" cy="12" r="10" />
         <path d="M12 8v4l3 3" />
       </svg>
     ),
   },
   {
-    color: "#fef9c3",
-    iconColor: "#713f12",
+    tint: "#DEE8DE",
+    iconColor: T.green,
     title: "Instant Submission",
-    desc: "The completed form goes straight to the insurer. Reference number, expected decision date, and full audit trail returned immediately. No fax, no portal login, no waiting.",
+    desc: "The completed form goes straight to the insurer, no fax, no portal login, no waiting.",
     icon: (
-      <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+      <svg width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
         <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
       </svg>
     ),
@@ -313,122 +339,175 @@ const HOW_IT_WORKS = [
 
 function HowItWorksSection() {
   return (
-    <div style={{ position: "relative", zIndex: 5, maxWidth: "1100px", margin: "0 auto", padding: "72px 24px 80px" }}>
-      {/* Label */}
-      <div style={{ textAlign: "center", marginBottom: "20px" }}>
-        <span style={{ display: "inline-block", background: "#fce7f3", border: "1.5px solid #f9a8d4", color: "#9d174d", borderRadius: "100px", padding: "6px 20px", fontSize: "11px", fontWeight: "800", letterSpacing: "0.1em", textTransform: "uppercase" as const, fontFamily: T.sans }}>
-          How it works
-        </span>
+    <div style={{ position: "relative", zIndex: 5, maxWidth: "1100px", margin: "0 auto", padding: "64px 24px 80px" }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: "10px", marginBottom: "36px" }}>
+        <h2 style={{ fontSize: "clamp(28px, 4vw, 40px)", fontWeight: "900", color: T.dark, letterSpacing: "-0.02em", margin: 0, fontFamily: T.serif }}>
+          Our Expertise
+        </h2>
+        <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: T.coral, flexShrink: 0 }} />
       </div>
 
-      {/* Heading */}
-      <h2 style={{ textAlign: "center", fontSize: "clamp(36px, 6vw, 56px)", fontWeight: "900", color: T.dark, letterSpacing: "-0.03em", lineHeight: "1.1", margin: "0 0 56px", fontFamily: T.serif }}>
-        From records to approval,<br />fully automated.
-      </h2>
-
-      {/* Cards grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "20px" }}>
-        {HOW_IT_WORKS.map((item) => (
-          <div key={item.title} style={{ background: T.card, border: `1.5px solid ${T.border}`, borderRadius: "18px", padding: "28px 24px" }}>
-            <div style={{ width: "44px", height: "44px", background: item.color, borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "center", color: item.iconColor, marginBottom: "18px", flexShrink: 0 }}>
-              {item.icon}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "16px" }}>
+        {HOW_IT_WORKS.map((item, i) => (
+          <div key={item.title} style={{ background: T.card, border: `1.5px solid ${T.border}`, borderRadius: "20px", padding: "22px", display: "flex", flexDirection: "column", gap: "16px" }}>
+            <div
+              style={{
+                width: "100%",
+                aspectRatio: "1.4",
+                borderRadius: "14px",
+                position: "relative",
+                overflow: "hidden",
+                background: `linear-gradient(150deg, #2A2A28 0%, #55534C 55%, #A8A398 100%)`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {/* faint grid texture, like a diagnostic readout */}
+              <svg width="100%" height="100%" style={{ position: "absolute", inset: 0, opacity: 0.14 }}>
+                <defs>
+                  <pattern id={`grid-${i}`} width="18" height="18" patternUnits="userSpaceOnUse">
+                    <path d="M18 0H0V18" fill="none" stroke="#fff" strokeWidth="1" />
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill={`url(#grid-${i})`} />
+              </svg>
+              <span style={{ position: "absolute", top: "12px", right: "14px", width: "7px", height: "7px", borderRadius: "50%", background: item.iconColor, boxShadow: `0 0 0 5px ${item.iconColor}33` }} />
+              <div style={{ position: "relative", color: "#fff", opacity: 0.92 }}>
+                {item.icon}
+              </div>
             </div>
-            <div style={{ fontSize: "16px", fontWeight: "800", color: T.dark, marginBottom: "10px", fontFamily: T.serif }}>{item.title}</div>
-            <div style={{ fontSize: "13px", color: "#666", lineHeight: "1.7", fontFamily: T.sans }}>{item.desc}</div>
+            <div>
+              <div style={{ fontSize: "16px", fontWeight: "700", color: T.dark, marginBottom: "6px", fontFamily: T.serif, letterSpacing: "-0.01em" }}>{item.title}</div>
+              <div style={{ fontSize: "13px", color: T.muted, lineHeight: "1.6", fontFamily: T.sans }}>{item.desc}</div>
+            </div>
           </div>
         ))}
       </div>
     </div>
   );
 }
-
-
 
 // ─── Hero / Landing ───────────────────────────────────────────────────────────
 
 function Hero({ onLogin }: { onLogin: () => void }) {
   return (
-    <div style={{ background: T.bg, minHeight: "100vh", position: "relative", overflow: "hidden", fontFamily: T.sans }}>
-      {/* Background decorative shapes matching screenshot */}
-      <div style={{ position: "absolute", top: "-60px", right: "-60px", width: "300px", height: "300px", background: T.yellow, borderRadius: "50%", zIndex: 0 }} />
-      <div style={{ position: "absolute", top: "450px", left: "30px", width: "200px", height: "200px", background: T.coral, borderRadius: "50%", zIndex: 0 }} />
-      <div style={{ position: "absolute", bottom: "40px", left: "30px", width: "180px", height: "180px", background: T.green, borderRadius: "50%", zIndex: 0 }} />
-      <div style={{ position: "absolute", top: "185px", left: "275px", width: "56px", height: "56px", background: T.blue, borderRadius: "10px", transform: "rotate(5deg)", zIndex: 0 }} />
-      <div style={{ position: "absolute", top: "275px", right: "375px", width: "20px", height: "20px", background: T.coral, clipPath: "polygon(50% 0%, 0% 100%, 100% 100%)", zIndex: 0 }} />
-      <div style={{ position: "absolute", bottom: "155px", right: "135px", width: "28px", height: "28px", background: T.green, borderRadius: "5px", zIndex: 0 }} />
-      <div style={{ position: "absolute", top: "58%", left: "46%", width: "44px", height: "44px", background: T.yellow, borderRadius: "50%", zIndex: 1 }} />
+    <div style={{ background: T.bg, minHeight: "100vh", position: "relative", fontFamily: T.sans }}>
 
       {/* Nav */}
-      <nav style={{ position: "relative", zIndex: 10, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 44px" }}>
+      <nav style={{ position: "relative", zIndex: 10, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "24px 44px", maxWidth: "1280px", margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <div style={{ width: "34px", height: "34px", background: T.coral, borderRadius: "9px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <svg width="18" height="18" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" viewBox="0 0 24 24">
+          <div style={{ width: "30px", height: "30px", background: T.dark, borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg width="16" height="16" fill="none" stroke={T.bg} strokeWidth="2.2" strokeLinecap="round" viewBox="0 0 24 24">
               <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
             </svg>
           </div>
-          <span style={{ fontWeight: "800", fontSize: "20px", color: T.dark, letterSpacing: "-0.02em", fontFamily: T.serif }}>PriorAgent</span>
+          <span style={{ fontWeight: "700", fontSize: "19px", color: T.dark, letterSpacing: "-0.02em", fontFamily: T.serif }}>PriorAgent</span>
+          <span style={{ fontFamily: T.mono, fontSize: "10px", color: T.muted, border: `1px solid ${T.border}`, borderRadius: "5px", padding: "2px 6px", marginLeft: "2px" }}>EST 2026</span>
         </div>
+
+        <div style={{ display: "flex", gap: "36px", fontSize: "13px", fontWeight: "600", color: T.dark }}>
+          {["Technology", "Product", "Learn", "About", "Contact"].map((l) => (
+            <span key={l} style={{ cursor: "pointer", opacity: 0.75 }}>{l}</span>
+          ))}
+        </div>
+
         <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-          <button onClick={onLogin} style={{ background: "transparent", border: `2px solid ${T.dark}`, color: T.dark, padding: "8px 22px", borderRadius: "100px", fontWeight: "600", fontSize: "14px", cursor: "pointer", fontFamily: T.sans }}>
+          <button onClick={onLogin} style={{ background: "transparent", border: "none", color: T.dark, fontWeight: "600", fontSize: "13px", cursor: "pointer", fontFamily: T.sans }}>
             Sign in
           </button>
-          <button onClick={onLogin} style={{ background: T.coral, border: "none", color: "#fff", padding: "10px 22px", borderRadius: "100px", fontWeight: "700", fontSize: "14px", cursor: "pointer", fontFamily: T.sans, display: "flex", alignItems: "center", gap: "6px" }}>
+          <button onClick={onLogin} style={{ background: T.blue, border: "none", color: "#fff", padding: "10px 22px", borderRadius: "100px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: T.sans }}>
             Get started
-            <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </button>
         </div>
       </nav>
 
-      {/* Hero copy */}
-      <div style={{ position: "relative", zIndex: 5, maxWidth: "680px", margin: "0 auto", textAlign: "center", padding: "52px 24px 32px" }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: T.dark, color: "#fff", borderRadius: "100px", padding: "6px 18px", fontSize: "11px", fontWeight: "700", letterSpacing: "0.09em", textTransform: "uppercase" as const, marginBottom: "32px" }}>
-          <span style={{ width: "7px", height: "7px", background: T.green, borderRadius: "50%", flexShrink: 0 }} />
-          Built for the Auth0 x AI Agents Hackathon
+      {/* Hero: bold headline left, image card right, like the reference */}
+      <div style={{ position: "relative", zIndex: 5, maxWidth: "1280px", margin: "0 auto", padding: "20px 44px 0", display: "grid", gridTemplateColumns: "1.05fr 0.95fr", gap: "20px", alignItems: "center" }}>
+
+        {/* Left: headline */}
+        <div>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", color: T.muted, fontSize: "12px", fontWeight: "600", marginBottom: "18px" }}>
+            <span style={{ width: "6px", height: "6px", background: T.blue, borderRadius: "50%" }} />
+            Built for the Auth0 x AI Agents Hackathon
+          </div>
+
+          <h1 style={{ fontSize: "clamp(46px, 5.5vw, 66px)", fontWeight: "700", color: T.dark, lineHeight: "1.03", letterSpacing: "-0.03em", margin: "0 0 22px", fontFamily: T.serif }}>
+            Prior auth<br />
+            that actually<br />
+            works<span style={{ color: T.coral }}>.</span>
+          </h1>
+
+          <p style={{ fontSize: "15px", color: T.muted, lineHeight: "1.7", maxWidth: "420px", margin: "0 0 32px" }}>
+            PriorAgent uses Open AI and Auth0 Token Vault to read health records, fill insurer forms, and submit prior authorizations, with CIBA patient consent at every step.
+          </p>
+
+          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+            <button onClick={onLogin} style={{ background: T.blue, border: "none", color: "#fff", padding: "14px 30px", borderRadius: "100px", fontWeight: "700", fontSize: "14px", cursor: "pointer", fontFamily: T.sans }}>
+              Start automating
+            </button>
+            <a href="https://github.com" target="_blank" rel="noreferrer" style={{ background: "transparent", border: `1.5px solid ${T.border}`, color: T.dark, padding: "14px 30px", borderRadius: "100px", fontWeight: "700", fontSize: "14px", cursor: "pointer", textDecoration: "none", fontFamily: T.sans }}>
+              View on GitHub
+            </a>
+          </div>
         </div>
 
-        <h1 style={{ fontSize: "clamp(52px, 8vw, 80px)", fontWeight: "900", color: T.dark, lineHeight: "1.05", letterSpacing: "-0.03em", margin: "0 0 24px", fontFamily: T.serif }}>
-          Prior auth that{" "}
-          <span style={{ background: T.yellow, padding: "2px 6px", borderRadius: "6px" }}>actually works</span>
-          {" "}in seconds.
-        </h1>
+        {/* Right: signature pulse card, floating badges like the reference's overlapping icons */}
+        <div style={{ position: "relative", background: T.card, border: `1.5px solid ${T.border}`, borderRadius: "28px", minHeight: "420px", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+          {/* faint diagnostic grid backdrop */}
+          <svg width="100%" height="100%" style={{ position: "absolute", inset: 0, opacity: 0.5 }}>
+            <defs>
+              <pattern id="hero-grid" width="28" height="28" patternUnits="userSpaceOnUse">
+                <path d="M28 0H0V28" fill="none" stroke={T.borderLight} strokeWidth="1" />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#hero-grid)" />
+          </svg>
 
-        <p style={{ fontSize: "17px", color: "#555", lineHeight: "1.7", maxWidth: "500px", margin: "0 auto 40px" }}>
-          PriorAgent uses Claude AI and Auth0 Token Vault to read health records, fill insurer forms, and submit prior authorizations, with CIBA patient consent at every step.
-        </p>
+          <div style={{ position: "relative", width: "82%", maxWidth: "380px" }}>
+<img
+  src={FloatingSpiky}
+  alt=""
+  className="float-bubble"
+  style={{ width: "100%", objectFit: "contain", display: "block" }}
+/>          </div>
 
-        <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
-          <button onClick={onLogin} style={{ background: T.coral, border: "none", color: "#fff", padding: "14px 32px", borderRadius: "12px", fontWeight: "700", fontSize: "16px", cursor: "pointer", fontFamily: T.sans, display: "flex", alignItems: "center", gap: "8px" }}>
-            Start automating
-            <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          </button>
-          <a href="https://github.com" target="_blank" rel="noreferrer" style={{ background: "transparent", border: `2px solid ${T.dark}`, color: T.dark, padding: "14px 32px", borderRadius: "12px", fontWeight: "700", fontSize: "16px", cursor: "pointer", textDecoration: "none", fontFamily: T.sans }}>
-            View on GitHub
-          </a>
+          <div style={{ position: "absolute", top: "14%", left: "8%", background: "#fff", border: `1.5px solid ${T.border}`, borderRadius: "12px", padding: "8px 14px", fontSize: "12px", fontWeight: "700", color: T.dark, boxShadow: "0 6px 18px rgba(27,27,24,0.06)", fontFamily: T.sans }}>
+            Auth0 Token Vault
+          </div>
+          <div style={{ position: "absolute", bottom: "16%", right: "8%", background: "#fff", border: `1.5px solid ${T.border}`, borderRadius: "12px", padding: "8px 14px", fontSize: "12px", fontWeight: "700", color: T.dark, boxShadow: "0 6px 18px rgba(27,27,24,0.06)", fontFamily: T.sans }}>
+            94% approval rate
+          </div>
+          <div style={{ position: "absolute", bottom: "8%", left: "10%", fontFamily: T.mono, fontSize: "10px", color: T.muted }}>
+            LIVE · EPIC FHIR R4
+          </div>
         </div>
       </div>
 
+      {/* Marquee bar */}
+      <div style={{ marginTop: "48px" }}>
+        <Ticker />
+      </div>
+
       {/* Feature chips */}
-      <div style={{ position: "relative", zIndex: 5, display: "flex", justifyContent: "center", gap: "10px", flexWrap: "wrap", padding: "16px 24px 52px" }}>
+      <div style={{ position: "relative", zIndex: 5, display: "flex", justifyContent: "center", gap: "10px", flexWrap: "wrap", padding: "36px 24px 12px" }}>
         {["Auth0 Token Vault", "CIBA Step-up Auth", "Epic FHIR R4", "Claude AI", "Insurer Submission"].map((f) => (
-          <span key={f} style={{ background: "#fff", border: `1.5px solid ${T.border}`, borderRadius: "100px", padding: "8px 18px", fontSize: "13px", color: "#555", fontWeight: "500" }}>
+          <span key={f} style={{ background: T.card, border: `1.5px solid ${T.border}`, borderRadius: "100px", padding: "8px 18px", fontSize: "13px", color: T.dark, fontWeight: "500" }}>
             {f}
           </span>
         ))}
       </div>
 
-      {/* ── NEW: Stats section ── */}
+      {/* Stats */}
       <StatsSection />
 
-      {/* ── NEW: Scrolling ticker ── */}
-      <Ticker />
-
-      {/* ── NEW: How it works ── */}
+      {/* Our Expertise cards */}
       <HowItWorksSection />
-
 
     </div>
   );
 }
+
 
 // ─── WorkflowForm ─────────────────────────────────────────────────────────────
 
@@ -628,7 +707,7 @@ function PAFormViewer({ form }: { form: PriorAuthForm }) {
       {/* Clinical Justification */}
       <div style={{ marginBottom: "16px" }}>
         <SectionLabel text="Clinical Justification" />
-        <div style={{ background: T.inputBg, border: `1px solid ${T.border}`, borderRadius: "10px", padding: "14px", fontSize: "13px", color: "#444", lineHeight: "1.7", maxHeight: "160px", overflowY: "auto" as const }}>
+        <div style={{ background: T.inputBg, border: `1px solid ${T.border}`, borderRadius: "10px", padding: "14px", fontSize: "13px", color: T.dark, lineHeight: "1.7", maxHeight: "160px", overflowY: "auto" as const }}>
           {form.clinicalJustification}
         </div>
       </div>
@@ -636,7 +715,7 @@ function PAFormViewer({ form }: { form: PriorAuthForm }) {
       {/* Previous Treatments */}
       <div style={{ marginBottom: "16px" }}>
         <SectionLabel text="Previous Treatments" />
-        <div style={{ background: T.inputBg, border: `1px solid ${T.border}`, borderRadius: "10px", padding: "14px", fontSize: "13px", color: "#444", lineHeight: "1.7" }}>
+        <div style={{ background: T.inputBg, border: `1px solid ${T.border}`, borderRadius: "10px", padding: "14px", fontSize: "13px", color: T.dark, lineHeight: "1.7" }}>
           {form.previousTreatments}
         </div>
       </div>
@@ -647,7 +726,7 @@ function PAFormViewer({ form }: { form: PriorAuthForm }) {
           <SectionLabel text="Supporting Documentation Needed" />
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             {form.supportingDocumentation.map((doc, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: "8px", fontSize: "13px", color: "#444" }}>
+              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: "8px", fontSize: "13px", color: T.dark }}>
                 <div style={{ width: "6px", height: "6px", background: T.coral, borderRadius: "50%", marginTop: "5px", flexShrink: 0 }} />
                 {doc}
               </div>
