@@ -58,7 +58,7 @@ The application follows the workflow below:
 
 ### AI
 
-* Claude
+* Openai
 
 ## Repository Structure
 
