@@ -7,13 +7,13 @@ import { insurerRequirementsService } from '../insurer/requirements.service';
 import { submissionService } from '../insurer/submission.service';
 import { PatientContext, FHIRMedication, FHIRCondition, PriorAuthForm } from '../../utils/types';
 
-// Tool definitions for OpenAI to call
-const PA_TOOLS: Array<{ name: string; description: string; input_schema: Record<string, unknown> }> = [
+// Tool definitions for OpenAI function-calling. Use `parameters` to match OpenAI's function schema.
+const PA_TOOLS: Array<{ name: string; description: string; parameters: Record<string, unknown> }> = [
   {
     name: 'get_patient_context',
     description: 'Fetch patient demographics and insurance info from FHIR',
-    input_schema: {
-      type: 'object' as const,
+    parameters: {
+      type: 'object',
       properties: {
         patient_id: { type: 'string', description: 'The FHIR patient ID' },
       },
@@ -23,8 +23,8 @@ const PA_TOOLS: Array<{ name: string; description: string; input_schema: Record<
   {
     name: 'get_medications',
     description: 'Fetch active medication requests for a patient',
-    input_schema: {
-      type: 'object' as const,
+    parameters: {
+      type: 'object',
       properties: {
         patient_id: { type: 'string', description: 'The FHIR patient ID' },
       },
@@ -34,8 +34,8 @@ const PA_TOOLS: Array<{ name: string; description: string; input_schema: Record<
   {
     name: 'get_conditions',
     description: 'Fetch active diagnoses and conditions for a patient',
-    input_schema: {
-      type: 'object' as const,
+    parameters: {
+      type: 'object',
       properties: {
         patient_id: { type: 'string', description: 'The FHIR patient ID' },
       },
@@ -45,8 +45,8 @@ const PA_TOOLS: Array<{ name: string; description: string; input_schema: Record<
   {
     name: 'get_insurer_requirements',
     description: 'Get the PA requirements for a specific insurer',
-    input_schema: {
-      type: 'object' as const,
+    parameters: {
+      type: 'object',
       properties: {
         insurer_id: { type: 'string', description: 'The insurer ID (e.g. BCBS, AETNA)' },
       },
@@ -56,8 +56,8 @@ const PA_TOOLS: Array<{ name: string; description: string; input_schema: Record<
   {
     name: 'draft_pa_form',
     description: 'Draft the prior authorization form using patient clinical data',
-    input_schema: {
-      type: 'object' as const,
+    parameters: {
+      type: 'object',
       properties: {
         patient_id: { type: 'string' },
         medication_id: { type: 'string', description: 'Target medication to authorize' },
@@ -69,8 +69,8 @@ const PA_TOOLS: Array<{ name: string; description: string; input_schema: Record<
   {
     name: 'submit_pa_form',
     description: 'Submit the completed PA form to the insurer',
-    input_schema: {
-      type: 'object' as const,
+    parameters: {
+      type: 'object',
       properties: {
         insurer_id: { type: 'string' },
         form: { type: 'object', description: 'The completed PA form data' },
@@ -81,8 +81,8 @@ const PA_TOOLS: Array<{ name: string; description: string; input_schema: Record<
   {
     name: 'check_completeness',
     description: 'Verify that all required fields are present before submission',
-    input_schema: {
-      type: 'object' as const,
+    parameters: {
+      type: 'object',
       properties: {
         form: { type: 'object', description: 'The PA form to validate' },
         insurer_requirements: { type: 'object', description: 'Requirements from the insurer' },
@@ -164,28 +164,61 @@ Complete the full workflow: gather records, draft the PA form, validate it, and 
       iterations++;
       logger.info(`[AgentLoop] Iteration ${iterations}`);
 
-      const response = await this.client.responses.create({
+      // Call chat completions with function definitions so the model can request tool executions.
+      const chatResponse = await this.client.chat.completions.create({
         model: env.openaiModel,
-        input: [
+        messages: [
           { role: 'system', content: systemPrompt },
-          ...messages.map((message) => ({ role: message.role, content: message.content }))
-        ] as Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
+          ...messages.map((m) => ({ role: m.role as any, content: m.content })),
+        ],
+        functions: PA_TOOLS as any,
+        function_call: 'auto',
+        temperature: 0.0,
       });
 
-      const responseText = typeof response.output_text === 'string' ? response.output_text : '';
-      if (responseText) {
-        logger.info(`[AgentLoop] Agent: ${responseText.slice(0, 200)}`);
-        agentLog.push({ role: 'assistant', content: responseText });
-        messages.push({ role: 'assistant', content: responseText });
-      }
+      const choice = chatResponse.choices?.[0];
+      const message = choice?.message;
 
-      if (!responseText) {
-        logger.info('[AgentLoop] Agent completed task');
+      if (!message) {
+        logger.info('[AgentLoop] No message from model; ending loop');
         break;
       }
 
-      // For the simplified OpenAI flow, we treat the assistant output as the final step and continue
-      // by invoking the drafting/submission tools directly from the workflow service.
+      // If the model requested a function call, execute it and provide the result back to the model.
+      if ((message as any).function_call) {
+        const fn = (message as any).function_call;
+        const fnName: string = fn.name;
+        let fnArgs: Record<string, unknown> = {};
+
+        try {
+          fnArgs = JSON.parse(fn.arguments || '{}');
+        } catch (err) {
+          logger.error('[AgentLoop] Failed to parse function arguments', err);
+        }
+
+        logger.info(`[AgentLoop] Model requested function: ${fnName}`);
+        agentLog.push({ role: 'assistant', content: JSON.stringify({ function_call: { name: fnName, arguments: fnArgs } }) });
+
+        const toolResult = await this.executeTool(fnName, fnArgs, sessionId, context) as unknown;
+
+        // Add the function result to messages so the model can continue reasoning.
+        const functionResultStr = typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult);
+        messages.push({ role: 'assistant', content: '' });
+        messages.push({ role: 'function', content: functionResultStr } as any);
+        agentLog.push({ role: 'function', content: functionResultStr });
+
+        // Continue to next iteration to let the model incorporate the tool output.
+        continue;
+      }
+
+      // If the model replied with assistant content (no function call), record it and break.
+      const assistantText = message.content ?? '';
+      if (assistantText) {
+        logger.info(`[AgentLoop] Assistant: ${assistantText.slice(0, 200)}`);
+        agentLog.push({ role: 'assistant', content: assistantText });
+        messages.push({ role: 'assistant', content: assistantText });
+      }
+
       break;
     }
 
