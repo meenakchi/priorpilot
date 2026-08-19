@@ -1,7 +1,10 @@
+import { v4 as uuidv4 } from 'uuid';
 import { Router, Request, Response, NextFunction } from 'express';
 import { requireAuth } from '../middleware/auth.middleware';
 import { priorAuthWorkflow } from '../workflows/priorAuth.workflow';
 import { insurerRequirementsService } from '../services/insurer/requirements.service';
+import { priorAuthAgentLoop } from '../services/ai/agentLoop.service';
+import { PriorAuthRequest } from '../utils/types';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -100,9 +103,9 @@ router.get('/patient/:patientId', requireAuth, (req: Request, res: Response) => 
   const requests = priorAuthWorkflow.listRequests(req.params.patientId);
   res.json(requests);
 });
-import { priorAuthAgentLoop } from '../services/ai/agentLoop.service';
-
-// Agentic endpoint — OpenAI drives the full workflow autonomously
+// Agentic endpoint — OpenAI drives the full workflow autonomously via tool-calling.
+// Response is adapted into the same PriorAuthRequest shape /run returns, so the
+// frontend can render either path without knowing which one produced the result.
 router.post('/agent/run', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { patientId, insurerId, medicationId } = req.body;
@@ -114,7 +117,7 @@ router.post('/agent/run', requireAuth, async (req: Request, res: Response, next:
 
     logger.info(`[Agent Route] Running autonomous agent for patient=${patientId}`);
 
-    const result = await priorAuthAgentLoop.run({
+    const agentResult = await priorAuthAgentLoop.run({
       patientId,
       insurerId,
       medicationId,
@@ -123,7 +126,29 @@ router.post('/agent/run', requireAuth, async (req: Request, res: Response, next:
       },
     });
 
-    res.json(result);
+    const primaryMed = agentResult.medications?.find((m) => m.id === medicationId) || agentResult.medications?.[0];
+    const primaryCondition = agentResult.conditions?.[0];
+    const now = new Date().toISOString();
+
+    const response: PriorAuthRequest & { agentLog: typeof agentResult.agentLog; error?: string } = {
+      id: uuidv4(),
+      patientId,
+      medicationName: agentResult.form?.medicationRequested || primaryMed?.medicationCodeableConcept.text || '',
+      medicationCode: primaryMed?.medicationCodeableConcept.coding?.[0]?.code || '',
+      diagnosis: agentResult.form?.diagnosis || primaryCondition?.code.text || '',
+      diagnosisCode: agentResult.form?.icd10Code || primaryCondition?.code.coding?.[0]?.code || '',
+      prescribingPhysician: agentResult.form?.prescribingPhysician || primaryMed?.requester?.display || '',
+      insurerId,
+      status: agentResult.success ? 'submitted' : 'error',
+      createdAt: now,
+      updatedAt: now,
+      aiDraftForm: agentResult.form,
+      submissionResult: agentResult.submissionResult,
+      agentLog: agentResult.agentLog,
+      error: agentResult.error,
+    };
+
+    res.json(response);
   } catch (err) {
     next(err);
   }

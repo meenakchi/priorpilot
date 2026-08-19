@@ -108,9 +108,17 @@ interface AgentResult {
     estimatedDecisionDate: string;
     submittedAt: string;
   };
+  patient?: PatientContext;
+  medications?: FHIRMedication[];
+  conditions?: FHIRCondition[];
   agentLog: Array<{ role: string; content: string }>;
   error?: string;
 }
+
+// OpenAI's legacy function-calling message shape isn't fully expressed by the
+// SDK's ChatCompletionMessageParam union once you're hand-assembling turns,
+// so we track messages loosely and let the SDK call itself do the validation.
+type AgentMessage = { role: 'system' | 'user' | 'assistant' | 'function'; content: string | null; name?: string; function_call?: { name: string; arguments: string } };
 
 // Local cache for agent session data
 const sessionCache = new Map<string, {
@@ -132,7 +140,7 @@ export class PriorAuthAgentLoop {
     sessionCache.set(sessionId, {});
 
     const agentLog: Array<{ role: string; content: string }> = [];
-    const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [];
+    const messages: AgentMessage[] = [];
 
     const systemPrompt = `You are PriorAgent, an autonomous AI agent that handles insurance prior authorization requests end-to-end.
 
@@ -169,7 +177,7 @@ Complete the full workflow: gather records, draft the PA form, validate it, and 
         model: env.openaiModel,
         messages: [
           { role: 'system', content: systemPrompt },
-          ...messages.map((m) => ({ role: m.role as any, content: m.content })),
+          ...messages.map((m) => ({ role: m.role, content: m.content, name: m.name, function_call: m.function_call } as any)),
         ],
         functions: PA_TOOLS as any,
         function_call: 'auto',
@@ -185,8 +193,8 @@ Complete the full workflow: gather records, draft the PA form, validate it, and 
       }
 
       // If the model requested a function call, execute it and provide the result back to the model.
-      if ((message as any).function_call) {
-        const fn = (message as any).function_call;
+      if (message.function_call) {
+        const fn = message.function_call;
         const fnName: string = fn.name;
         let fnArgs: Record<string, unknown> = {};
 
@@ -197,14 +205,27 @@ Complete the full workflow: gather records, draft the PA form, validate it, and 
         }
 
         logger.info(`[AgentLoop] Model requested function: ${fnName}`);
-        agentLog.push({ role: 'assistant', content: JSON.stringify({ function_call: { name: fnName, arguments: fnArgs } }) });
+        agentLog.push({ role: 'assistant', content: `Calling ${fnName}(${JSON.stringify(fnArgs)})` });
+
+        // Record the assistant's function_call turn itself — OpenAI requires this
+        // to precede the matching `function` role message, or the next call 400s.
+        messages.push({ role: 'assistant', content: null, function_call: { name: fnName, arguments: fn.arguments || '{}' } });
 
         const toolResult = await this.executeTool(fnName, fnArgs, sessionId, context) as unknown;
 
+        // Capture terminal artifacts as they're produced — this is what the
+        // caller actually needs back, not just the transcript.
+        if (fnName === 'draft_pa_form') {
+          finalForm = toolResult as PriorAuthForm;
+        }
+        if (fnName === 'submit_pa_form') {
+          submissionResult = toolResult as AgentResult['submissionResult'];
+        }
+
         // Add the function result to messages so the model can continue reasoning.
+        // The `function` role message MUST carry `name`, or OpenAI rejects the request.
         const functionResultStr = typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult);
-        messages.push({ role: 'assistant', content: '' });
-        messages.push({ role: 'function', content: functionResultStr } as any);
+        messages.push({ role: 'function', name: fnName, content: functionResultStr });
         agentLog.push({ role: 'function', content: functionResultStr });
 
         // Continue to next iteration to let the model incorporate the tool output.
@@ -222,13 +243,23 @@ Complete the full workflow: gather records, draft the PA form, validate it, and 
       break;
     }
 
+    if (iterations >= MAX_ITERATIONS && !submissionResult) {
+      logger.info(`[AgentLoop] Hit MAX_ITERATIONS (${MAX_ITERATIONS}) without a submission`);
+      agentLog.push({ role: 'system', content: `Stopped after ${MAX_ITERATIONS} iterations without completing submission.` });
+    }
+
+    const session = sessionCache.get(sessionId);
     sessionCache.delete(sessionId);
 
     return {
       success: !!submissionResult,
       form: finalForm,
       submissionResult,
+      patient: session?.patient,
+      medications: session?.medications,
+      conditions: session?.conditions,
       agentLog,
+      error: !submissionResult ? 'Agent did not reach submission before the conversation ended' : undefined,
     };
   }
 

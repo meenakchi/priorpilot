@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import FloatingSpiky from "./assets/Weird_Bubble_-_Copy_1-1440x765-removebg-preview.png";
+import FloatingSpiky from "./assets/floatingspiky.png";
 import "./App.css";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -43,6 +43,11 @@ interface SubmissionResult {
   submittedAt: string;
 }
 
+interface AgentLogEntry {
+  role: string;
+  content: string;
+}
+
 interface PARequest {
   id: string;
   patientId: string;
@@ -53,6 +58,8 @@ interface PARequest {
   createdAt: string;
   aiDraftForm?: PriorAuthForm;
   submissionResult?: SubmissionResult;
+  agentLog?: AgentLogEntry[];
+  error?: string;
 }
 
 interface Insurer {
@@ -768,6 +775,42 @@ function SubmissionCard({ result }: { result: SubmissionResult }) {
   );
 }
 
+// ─── AgentLogViewer ───────────────────────────────────────────────────────────
+// Shows the actual tool-calling transcript from the autonomous agent loop —
+// this is the part that proves the workflow isn't just a fixed pipeline.
+
+function AgentLogViewer({ log, error }: { log: AgentLogEntry[]; error?: string }) {
+  const roleLabel = (role: string) =>
+    role === "function" ? "Tool result" : role === "user" ? "Task" : "Agent";
+
+  return (
+    <div style={cardStyle}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+        <h3 style={{ fontSize: "15px", fontWeight: "800", color: T.dark, margin: 0, fontFamily: T.serif }}>
+          Agent reasoning
+        </h3>
+        {error && (
+          <span style={{ fontSize: "11px", fontWeight: "700", color: "#b91c1c", background: "#fee2e2", padding: "3px 9px", borderRadius: "999px" }}>
+            {error}
+          </span>
+        )}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "10px", maxHeight: "320px", overflowY: "auto" as const }}>
+        {log.map((entry, i) => (
+          <div key={i} style={{ background: T.inputBg, borderRadius: "10px", padding: "10px 12px", fontSize: "12.5px", lineHeight: "1.5" }}>
+            <div style={{ fontSize: "10px", fontWeight: "700", color: T.muted, textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: "4px" }}>
+              {roleLabel(entry.role)}
+            </div>
+            <div style={{ color: T.dark, fontFamily: entry.role === "function" ? "monospace" : T.sans, wordBreak: "break-word" as const }}>
+              {entry.content.length > 400 ? `${entry.content.slice(0, 400)}…` : entry.content}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── ConsentModal ─────────────────────────────────────────────────────────────
 
 function ConsentModal({ show, onClose }: { show: boolean; onClose: () => void }) {
@@ -835,9 +878,11 @@ function Dashboard({ user }: { user: User }) {
     ];
 
     try {
-      const result = await apiFetch<PARequest>("/prior-auth/run", {
+      // Agentic endpoint: OpenAI drives FHIR lookups, drafting, validation, and
+      // submission itself via tool-calling, rather than a fixed backend pipeline.
+      const result = await apiFetch<PARequest>("/prior-auth/agent/run", {
         method: "POST",
-        body: JSON.stringify({ patientId, insurerId, useDemo: true }),
+        body: JSON.stringify({ patientId, insurerId }),
       });
       for (const s of progressStatuses) { setWorkflowStatus(s); await sleep(600); }
       setCurrentRequest(result);
@@ -996,7 +1041,7 @@ function Dashboard({ user }: { user: User }) {
                 <div style={{ fontSize: "13px", color: T.muted, marginTop: "6px" }}>
                   {workflowStatus === "pending_consent"  && "Waiting for patient to approve on their device"}
                   {workflowStatus === "fetching_records" && "Connecting to Epic FHIR via Token Vault"}
-                  {workflowStatus === "analyzing"        && "Claude is reading clinical records"}
+                  {workflowStatus === "analyzing"        && "OpenAI is reading clinical records"}
                   {workflowStatus === "draft_ready"      && "Finalizing form fields"}
                 </div>
               </div>
@@ -1010,6 +1055,13 @@ function Dashboard({ user }: { user: User }) {
             {/* PA form */}
             {!loading && currentRequest?.aiDraftForm && (
               <PAFormViewer form={currentRequest.aiDraftForm} />
+            )}
+
+            {/* Agent tool-calling transcript */}
+            {!loading && currentRequest?.agentLog && currentRequest.agentLog.length > 0 && (
+              <div style={{ marginTop: "18px" }}>
+                <AgentLogViewer log={currentRequest.agentLog} error={currentRequest.error} />
+              </div>
             )}
           </div>
         </div>
