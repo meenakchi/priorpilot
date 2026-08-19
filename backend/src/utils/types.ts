@@ -77,6 +77,12 @@ export interface PriorAuthForm {
   physicianNPI: string;
   urgency: 'routine' | 'urgent' | 'emergent';
   supportingDocumentation: string[];
+  // Evidence items referencing FHIR resource IDs and excerpts used to justify the request
+  evidence?: Array<{ resourceId: string; excerpt: string }>;
+  // Confidence score 0.0 - 1.0 indicating AI confidence in the drafted form
+  confidenceScore?: number;
+  // Optional list of source FHIR resource IDs used to build the form
+  sourceResourceIds?: string[];
 }
 
 export interface SubmissionResult {

@@ -3,6 +3,7 @@ import { demoFHIRService } from '../services/ehr/demoFHIR.service';
 import { createFHIRService } from '../services/ehr/fhir.service';
 import { tokenVaultService } from '../services/auth/tokenVault.service';
 import { logger } from '../utils/logger';
+import { env } from '../config/env';
 
 export async function getClinicalSnapshot(
   req: Request,
@@ -11,7 +12,7 @@ export async function getClinicalSnapshot(
 ): Promise<void> {
   try {
     const { patientId } = req.params;
-    const useDemo = req.query.demo === 'true' || process.env.NODE_ENV === 'development';
+    const useDemo = req.query.demo === 'true' || env.useDemoFhirDefault;
 
     if (!patientId) {
       res.status(400).json({ error: 'patientId is required' });
@@ -43,7 +44,7 @@ export async function getPatient(
 ): Promise<void> {
   try {
     const { patientId } = req.params;
-    const useDemo = req.query.demo === 'true' || process.env.NODE_ENV === 'development';
+    const useDemo = req.query.demo === 'true' || env.useDemoFhirDefault;
 
     if (useDemo) {
       const patient = await demoFHIRService.getPatient(patientId);
@@ -68,7 +69,7 @@ export async function getMedications(
 ): Promise<void> {
   try {
     const { patientId } = req.params;
-    const useDemo = req.query.demo === 'true' || process.env.NODE_ENV === 'development';
+    const useDemo = req.query.demo === 'true' || env.useDemoFhirDefault;
 
     if (useDemo) {
       const meds = await demoFHIRService.getMedicationRequests(patientId);
@@ -93,7 +94,7 @@ export async function getConditions(
 ): Promise<void> {
   try {
     const { patientId } = req.params;
-    const useDemo = req.query.demo === 'true' || process.env.NODE_ENV === 'development';
+    const useDemo = req.query.demo === 'true' || env.useDemoFhirDefault;
 
     if (useDemo) {
       const conditions = await demoFHIRService.getConditions(patientId);

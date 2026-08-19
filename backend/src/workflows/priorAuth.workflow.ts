@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../utils/logger';
 import { PriorAuthRequest, PriorAuthStatus } from '../utils/types';
+import * as requestStoreLib from '../lib/requestStore';
 import { tokenVaultService } from '../services/auth/tokenVault.service';
 import { cibaService } from '../services/auth/ciba.service';
 import { demoFHIRService } from '../services/ehr/demoFHIR.service';
@@ -9,8 +10,7 @@ import { openaiService } from '../services/ai/openai.service';
 import { submissionService } from '../services/insurer/submission.service';
 import { insurerRequirementsService } from '../services/insurer/requirements.service';
 
-// In-memory store for hackathon — use DB in production
-const requestStore = new Map<string, PriorAuthRequest>();
+// Redis-backed request store (see lib/requestStore.ts)
 
 export interface WorkflowInput {
   patientId: string;
@@ -19,6 +19,7 @@ export interface WorkflowInput {
   userAuth0AccessToken: string;
   userEmail: string;
   useDemo?: boolean; // If true, skip Token Vault and use Epic open sandbox
+  requestId?: string; // Optional externally-provided request ID (useful when starting in background)
 }
 
 export class PriorAuthWorkflow {
@@ -32,10 +33,11 @@ export class PriorAuthWorkflow {
    * 6. Submit to insurer
    */
   async execute(input: WorkflowInput): Promise<PriorAuthRequest> {
-    const requestId = uuidv4();
+    const requestId = input.requestId ?? uuidv4();
 
-    // Create initial record
-    const request: PriorAuthRequest = {
+    // Create initial record (or update if caller already created it)
+    const existing = await requestStoreLib.getRequest(requestId);
+    const request: PriorAuthRequest = existing ?? {
       id: requestId,
       patientId: input.patientId,
       medicationName: '',
@@ -49,7 +51,7 @@ export class PriorAuthWorkflow {
       updatedAt: new Date().toISOString(),
     };
 
-    requestStore.set(requestId, request);
+    await requestStoreLib.setRequest(requestId, request);
     logger.info(`[Workflow] Started PA workflow. Request ID: ${requestId}`);
 
     try {
@@ -59,7 +61,7 @@ export class PriorAuthWorkflow {
 
       // Step 2: CIBA step-up consent (if insurer requires it)
       if (requirements.requiresCIBA && !input.useDemo) {
-        this.updateStatus(requestId, 'pending_consent');
+          await requestStoreLib.updateStatus(requestId, 'pending_consent');
 
         const cibaResponse = await cibaService.initiateRequest(
           input.userEmail,
@@ -73,7 +75,7 @@ export class PriorAuthWorkflow {
       }
 
       // Step 3: Get FHIR access token
-      this.updateStatus(requestId, 'fetching_records');
+      await requestStoreLib.updateStatus(requestId, 'fetching_records');
       let fhirSnapshot: Awaited<ReturnType<typeof demoFHIRService.getClinicalSnapshot>>;
 
       if (input.useDemo) {
@@ -106,10 +108,10 @@ export class PriorAuthWorkflow {
         request.diagnosis = primaryCondition.code.text;
         request.diagnosisCode = primaryCondition.code.coding[0]?.code || '';
       }
-      requestStore.set(requestId, { ...request });
+      await requestStoreLib.setRequest(requestId, { ...request });
 
       // Step 4: OpenAI drafts the PA form
-      this.updateStatus(requestId, 'analyzing');
+      await requestStoreLib.updateStatus(requestId, 'analyzing');
       logger.info('[Workflow] OpenAI is analyzing clinical records...');
 
       const form = await openaiService.draftPriorAuthForm(
@@ -119,19 +121,19 @@ export class PriorAuthWorkflow {
         input.medicationId || medications[0]?.id || ''
       );
 
-      this.updateStatus(requestId, 'draft_ready');
-      const updated = requestStore.get(requestId)!;
+      await requestStoreLib.updateStatus(requestId, 'draft_ready');
+      const updated = (await requestStoreLib.getRequest(requestId))!;
       updated.aiDraftForm = form;
-      requestStore.set(requestId, updated);
+      await requestStoreLib.setRequest(requestId, updated);
 
       // Step 5: Submit to insurer
       logger.info('[Workflow] Submitting PA to insurer...');
       const result = await submissionService.submitPriorAuth(input.insurerId, form);
 
-      this.updateStatus(requestId, 'submitted');
-      const final = requestStore.get(requestId)!;
+      await requestStoreLib.updateStatus(requestId, 'submitted');
+      const final = (await requestStoreLib.getRequest(requestId))!;
       final.submissionResult = result;
-      requestStore.set(requestId, final);
+      await requestStoreLib.setRequest(requestId, final);
 
       logger.info(`[Workflow] ✅ PA workflow complete. Reference: ${result.referenceNumber}`);
       return requestStore.get(requestId)!;
@@ -139,26 +141,22 @@ export class PriorAuthWorkflow {
     } catch (err: unknown) {
       const error = err as Error;
       logger.error(`[Workflow] ❌ Workflow failed: ${error.message}`);
-      this.updateStatus(requestId, 'error');
+      await requestStoreLib.updateStatus(requestId, 'error');
       throw error;
     }
   }
 
   getRequest(requestId: string): PriorAuthRequest | undefined {
-    return requestStore.get(requestId);
+    // Synchronous wrapper - callers should prefer async store methods
+    throw new Error('Use async request store methods: getRequest(id) from lib/requestStore');
   }
 
   listRequests(patientId: string): PriorAuthRequest[] {
-    return Array.from(requestStore.values()).filter((r) => r.patientId === patientId);
+    throw new Error('Use async listRequests(patientId) from lib/requestStore');
   }
 
   private updateStatus(requestId: string, status: PriorAuthStatus): void {
-    const req = requestStore.get(requestId);
-    if (req) {
-      req.status = status;
-      req.updatedAt = new Date().toISOString();
-      requestStore.set(requestId, req);
-    }
+    throw new Error('Use async updateStatus(id,status) from lib/requestStore');
   }
 }
 

@@ -2,10 +2,13 @@ import { v4 as uuidv4 } from 'uuid';
 import { Router, Request, Response, NextFunction } from 'express';
 import { requireAuth } from '../middleware/auth.middleware';
 import { priorAuthWorkflow } from '../workflows/priorAuth.workflow';
+import workflowQueue from '../lib/queue';
+import * as requestStoreLib from '../lib/requestStore';
 import { insurerRequirementsService } from '../services/insurer/requirements.service';
 import { priorAuthAgentLoop } from '../services/ai/agentLoop.service';
 import { PriorAuthRequest } from '../utils/types';
 import { logger } from '../utils/logger';
+import { env } from '../config/env';
 
 const router = Router();
 
@@ -35,26 +38,33 @@ router.post('/start', requireAuth, async (req: Request, res: Response, next: Nex
 
     logger.info(`[Route] Starting PA workflow for patient: ${patientId}, insurer: ${insurerId}`);
 
-    // Run workflow asynchronously and return request ID immediately
-    const requestId = `req-${Date.now()}`;
-
-    // Start the workflow in background
-    priorAuthWorkflow
-      .execute({
-        patientId,
-        insurerId,
-        medicationId,
-        userAuth0AccessToken: accessToken,
-        userEmail,
-        useDemo: useDemo ?? (process.env.NODE_ENV === 'development'),
-      })
-      .catch((err: Error) => logger.error('[Route] Background workflow error', err.message));
-
-    res.json({
-      message: 'Prior authorization workflow started',
-      requestId,
+    // Start workflow as background job and return a stable ID for polling
+    const requestId = uuidv4();
+    const initial = {
+      id: requestId,
+      patientId,
+      medicationName: '',
+      medicationCode: '',
+      diagnosis: '',
+      diagnosisCode: '',
+      prescribingPhysician: '',
+      insurerId,
       status: 'pending_consent',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    await requestStoreLib.setRequest(requestId, initial as any);
+    await workflowQueue.add('runPriorAuth', {
+      patientId,
+      insurerId,
+      medicationId,
+      userAuth0AccessToken: accessToken,
+      userEmail,
+      useDemo: useDemo ?? env.useDemoFhirDefault,
+      requestId,
     });
+
+    res.json({ message: 'Prior authorization workflow started', requestId, status: 'pending_consent' });
   } catch (err) {
     next(err);
   }
@@ -79,7 +89,7 @@ router.post('/run', requireAuth, async (req: Request, res: Response, next: NextF
       medicationId,
       userAuth0AccessToken: accessToken,
       userEmail,
-      useDemo: useDemo ?? true,
+      useDemo: useDemo ?? env.useDemoFhirDefault,
     });
 
     res.json(result);
@@ -89,8 +99,8 @@ router.post('/run', requireAuth, async (req: Request, res: Response, next: NextF
 });
 
 // Get a specific PA request
-router.get('/request/:requestId', requireAuth, (req: Request, res: Response) => {
-  const request = priorAuthWorkflow.getRequest(req.params.requestId);
+router.get('/request/:requestId', requireAuth, async (req: Request, res: Response) => {
+  const request = await requestStoreLib.getRequest(req.params.requestId);
   if (!request) {
     res.status(404).json({ error: 'Prior auth request not found' });
     return;
@@ -99,8 +109,8 @@ router.get('/request/:requestId', requireAuth, (req: Request, res: Response) => 
 });
 
 // List all PA requests for a patient
-router.get('/patient/:patientId', requireAuth, (req: Request, res: Response) => {
-  const requests = priorAuthWorkflow.listRequests(req.params.patientId);
+router.get('/patient/:patientId', requireAuth, async (req: Request, res: Response) => {
+  const requests = await requestStoreLib.listRequests(req.params.patientId);
   res.json(requests);
 });
 // Agentic endpoint — OpenAI drives the full workflow autonomously via tool-calling.

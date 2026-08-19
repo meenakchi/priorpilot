@@ -1,10 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
+import { v4 as uuidv4 } from 'uuid';
+import workflowQueue from '../lib/queue';
+import * as requestStoreLib from '../lib/requestStore';
 import { priorAuthWorkflow } from '../workflows/priorAuth.workflow';
 import { openaiService } from '../services/ai/openai.service';
 import { demoFHIRService } from '../services/ehr/demoFHIR.service';
 import { submissionService } from '../services/insurer/submission.service';
 import { insurerRequirementsService } from '../services/insurer/requirements.service';
 import { logger } from '../utils/logger';
+import { env } from '../config/env';
 
 export async function startWorkflow(
   req: Request,
@@ -24,24 +28,38 @@ export async function startWorkflow(
 
     logger.info(`[PA Controller] Starting workflow: patient=${patientId}, insurer=${insurerId}`);
 
-    const requestId = `req-${Date.now()}`;
+    const requestId = uuidv4();
 
-    priorAuthWorkflow
-      .execute({
+    // Create initial request record in Redis so callers can poll immediately
+    const initial = {
+      id: requestId,
+      patientId,
+      medicationName: '',
+      medicationCode: '',
+      diagnosis: '',
+      diagnosisCode: '',
+      prescribingPhysician: '',
+      insurerId,
+      status: 'pending_consent',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    await requestStoreLib.setRequest(requestId, initial as any);
+
+    // Enqueue the background job; the worker will run the workflow and update the record
+    await workflowQueue.add('runPriorAuth', {
+      ...{
         patientId,
         insurerId,
         medicationId,
         userAuth0AccessToken: accessToken,
         userEmail,
-        useDemo: useDemo ?? true,
-      })
-      .catch((err: Error) => logger.error('[PA Controller] Background workflow error', err.message));
-
-    res.json({
-      message: 'Prior authorization workflow started',
-      requestId,
-      status: 'pending_consent',
+        useDemo: useDemo ?? env.useDemoFhirDefault,
+        requestId,
+      },
     });
+
+    res.json({ message: 'Prior authorization workflow started', requestId, status: 'pending_consent' });
   } catch (err) {
     next(err);
   }
@@ -69,7 +87,7 @@ export async function runWorkflow(
       medicationId,
       userAuth0AccessToken: accessToken,
       userEmail,
-      useDemo: useDemo ?? true,
+      useDemo: useDemo ?? env.useDemoFhirDefault,
     });
 
     res.json(result);
@@ -85,13 +103,11 @@ export async function getRequest(
 ): Promise<void> {
   try {
     const { requestId } = req.params;
-    const request = priorAuthWorkflow.getRequest(requestId);
-
+    const request = await requestStoreLib.getRequest(requestId);
     if (!request) {
       res.status(404).json({ error: 'Prior auth request not found' });
       return;
     }
-
     res.json(request);
   } catch (err) {
     next(err);
@@ -105,7 +121,7 @@ export async function listPatientRequests(
 ): Promise<void> {
   try {
     const { patientId } = req.params;
-    const requests = priorAuthWorkflow.listRequests(patientId);
+    const requests = await requestStoreLib.listRequests(patientId);
     res.json(requests);
   } catch (err) {
     next(err);

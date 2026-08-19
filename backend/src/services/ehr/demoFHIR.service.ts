@@ -123,7 +123,7 @@ function getDemoMedications(): FHIRMedication[] {
         ],
         text: 'Dupilumab (Dupixent) 300mg injection every 2 weeks',
       },
-      subject: { reference: `Patient/${getDemoPatientFallback('').patientId}` },
+      subject: { reference: `Patient/demo-patient` },
       requester: { display: 'Dr. Sarah Chen, MD (Dermatology)' },
       reasonCode: [{ text: 'Moderate-to-severe atopic dermatitis, inadequate response to topical corticosteroids' }],
       dosageInstruction: [{ text: '300mg SC every 2 weeks after 600mg loading dose' }],

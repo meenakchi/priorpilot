@@ -48,8 +48,11 @@ Output ONLY this JSON (no markdown, no explanation):
   "previousTreatments": "<list treatments already tried and failed, or 'None documented in records'>",
   "prescribingPhysician": "<physician name>",
   "physicianNPI": "<NPI if available, else 'On file with prescriber'>",
-  "urgency": "<'routine' | 'urgent' | 'emergent' based on clinical picture>",
-  "supportingDocumentation": ["<list of documents that would strengthen the PA, e.g. 'Lab results showing severity', 'Photos of skin lesions'"]
+    "urgency": "<'routine' | 'urgent' | 'emergent' based on clinical picture>",
+    "supportingDocumentation": ["<list of documents that would strengthen the PA, e.g. 'Lab results showing severity', 'Photos of skin lesions'"],
+    "evidence": [{ "resourceId": "<FHIR resource id>", "excerpt": "<short excerpt from the resource supporting the assertion>" }],
+    "confidenceScore": "<number 0.0-1.0 indicating AI confidence>",
+    "sourceResourceIds": ["<list of FHIR resource ids used>"]
 }`;
 }
 

@@ -31,4 +31,14 @@ export const env = {
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
   nodeEnv: process.env.NODE_ENV || 'development',
   sessionSecret: process.env.SESSION_SECRET!,
+  // Explicit, independent toggle for demo/sandbox FHIR data. Previously this
+  // was implicitly forced on whenever NODE_ENV === 'development', which meant
+  // the real Epic Token Vault path was never exercised locally. Now it only
+  // defaults to demo data when USE_DEMO_FHIR is unset AND no Epic client
+  // credentials are configured, so setting real EPIC_CLIENT_ID/SECRET lets
+  // you test the live integration in dev without extra flags.
+  useDemoFhirDefault:
+    process.env.USE_DEMO_FHIR !== undefined
+      ? process.env.USE_DEMO_FHIR === 'true'
+      : !process.env.EPIC_CLIENT_ID,
 };

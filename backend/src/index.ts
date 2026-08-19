@@ -4,6 +4,8 @@ dotenv.config();
 import app from './app';
 import { logger } from './utils/logger';
 import { validateEnv } from './config/env';
+// Start background worker for workflows (runs in-process for demo)
+import './workers/priorAuth.worker';
 
 validateEnv();
 

@@ -60,6 +60,10 @@ interface PARequest {
   submissionResult?: SubmissionResult;
   agentLog?: AgentLogEntry[];
   error?: string;
+  /** True when this result is local sample data shown because the live
+   *  agent call failed — never set by the real backend. Always show the
+   *  demo banner when this is true; never present it as a real submission. */
+  isDemoFallback?: boolean;
 }
 
 interface Insurer {
@@ -69,7 +73,7 @@ interface Insurer {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const BACKEND = "http://localhost:3001";
+const BACKEND = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
 const API = `${BACKEND}/api`;
 
 const DEMO_PATIENTS = [
@@ -157,13 +161,36 @@ function Chip({ label, bg, color }: { label: string; bg: string; color: string }
 
 // ─── API helper ───────────────────────────────────────────────────────────────
 
+class ApiError extends Error {
+  status?: number;
+  constructor(message: string, status?: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API}${path}`, {
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  });
-  if (!res.ok) throw new Error(`API error ${res.status}`);
+  let res: Response;
+  try {
+    res = await fetch(`${API}${path}`, {
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      ...options,
+    });
+  } catch {
+    // Network-level failure (backend unreachable, CORS, offline, etc.)
+    throw new ApiError("Could not reach the PriorAgent backend.");
+  }
+  if (!res.ok) {
+    let message = `API error ${res.status}`;
+    try {
+      const body = await res.json();
+      if (body?.message) message = body.message;
+    } catch {
+      /* response wasn't JSON, keep default message */
+    }
+    throw new ApiError(message, res.status);
+  }
   return res.json();
 }
 
@@ -275,9 +302,9 @@ function Ticker() {
 // ─── Stats section ────────────────────────────────────────────────────────────
 
 const STATS = [
-  { value: "$13B",  label: "Annual PA cost burden" },
-  { value: "4.5h",  label: "Saved per authorization" },
-  { value: "94%",   label: "Approval rate" },
+  { value: "Proof‑of‑Concept", label: "Project stage" },
+  { value: "Demo Workflow",    label: "Shown in demo" },
+  { value: "Prototype",        label: "Maturity" },
 ];
 
 function StatsSection() {
@@ -719,6 +746,35 @@ function PAFormViewer({ form }: { form: PriorAuthForm }) {
         </div>
       </div>
 
+      {/* Evidence & Confidence */}
+      <div style={{ display: "flex", gap: "12px", marginBottom: "16px" }}>
+        <div style={{ flex: 1 }}>
+          <SectionLabel text="Evidence" />
+          <div style={{ background: T.inputBg, border: `1px solid ${T.border}`, borderRadius: "10px", padding: "12px", fontSize: "13px", color: T.dark }}>
+            {form.evidence && form.evidence.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                {form.evidence.map((e, i) => (
+                  <div key={i} style={{ fontSize: "13px" }}>
+                    <div style={{ fontWeight: 700, marginBottom: "4px" }}>{e.resourceId}</div>
+                    <div style={{ color: T.muted }}>{e.excerpt}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ color: T.muted }}>No explicit evidence provided</div>
+            )}
+          </div>
+        </div>
+
+        <div style={{ width: "220px" }}>
+          <SectionLabel text="AI Confidence" />
+          <div style={{ background: T.inputBg, border: `1px solid ${T.border}`, borderRadius: "10px", padding: "12px", textAlign: "center" }}>
+            <div style={{ fontSize: "20px", fontWeight: 800 }}>{typeof form.confidenceScore === 'number' ? `${Math.round(form.confidenceScore * 100)}%` : '—'}</div>
+            <div style={{ fontSize: "12px", color: T.muted, marginTop: "6px" }}>Model confidence in draft</div>
+          </div>
+        </div>
+      </div>
+
       {/* Previous Treatments */}
       <div style={{ marginBottom: "16px" }}>
         <SectionLabel text="Previous Treatments" />
@@ -888,11 +944,51 @@ function Dashboard({ user }: { user: User }) {
       setCurrentRequest(result);
       setWorkflowStatus(result.status as WorkflowStatus);
       setHistory((prev) => [result, ...prev]);
-    } catch {
-      // Demo fallback
+    } catch (err) {
+      const apiErr = err instanceof ApiError ? err : undefined;
+
+      // 401s mean the session expired — surface that plainly instead of
+      // pretending the request succeeded.
+      if (apiErr?.status === 401) {
+        setWorkflowStatus("error");
+        setCurrentRequest({
+          id: `error-${Date.now()}`,
+          patientId,
+          medicationName: "",
+          diagnosis: "",
+          insurerId,
+          status: "error",
+          createdAt: new Date().toISOString(),
+          error: "Your session expired. Please log in again.",
+        });
+        return;
+      }
+
+      // Any other server-side error (500, validation, etc.) — also show it
+      // for real rather than masking it with sample data.
+      if (apiErr && apiErr.status !== undefined) {
+        setWorkflowStatus("error");
+        setCurrentRequest({
+          id: `error-${Date.now()}`,
+          patientId,
+          medicationName: "",
+          diagnosis: "",
+          insurerId,
+          status: "error",
+          createdAt: new Date().toISOString(),
+          error: apiErr.message,
+        });
+        return;
+      }
+
+      // Only reachable when the backend itself couldn't be reached at all
+      // (e.g. it's not running). Clearly label the sample data as sample
+      // data — never present a fabricated result as a real submission.
+      console.warn("[PriorAgent] Backend unreachable, showing sample data:", err);
       for (const s of progressStatuses) { setWorkflowStatus(s); await sleep(900); }
       const demoResult: PARequest = {
         id: `demo-${Date.now()}`,
+        isDemoFallback: true,
         patientId,
         medicationName: "Dupilumab (Dupixent) 300mg",
         diagnosis: "Atopic Dermatitis - Moderate to Severe",
@@ -1043,6 +1139,40 @@ function Dashboard({ user }: { user: User }) {
                   {workflowStatus === "fetching_records" && "Connecting to Epic FHIR via Token Vault"}
                   {workflowStatus === "analyzing"        && "OpenAI is reading clinical records"}
                   {workflowStatus === "draft_ready"      && "Finalizing form fields"}
+                </div>
+              </div>
+            )}
+
+            {/* Error state — shown for real failures instead of faking success */}
+            {!loading && currentRequest?.status === "error" && (
+              <div style={{ ...cardStyle, borderColor: T.coral, background: "#FCEDEA" }}>
+                <div style={{ fontWeight: 800, color: T.coral, marginBottom: "6px" }}>
+                  Something went wrong
+                </div>
+                <div style={{ fontSize: "13px", color: T.dark }}>
+                  {currentRequest.error || "The request failed. Please try again."}
+                </div>
+              </div>
+            )}
+
+            {/* Demo-mode banner — only ever shown when the live agent call
+                could not be reached, so it's never mistaken for a real result */}
+            {!loading && currentRequest?.isDemoFallback && (
+              <div
+                style={{
+                  ...cardStyle,
+                  borderColor: T.yellow,
+                  background: "#FDF6E6",
+                  marginBottom: "14px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                }}
+              >
+                <span style={{ fontSize: "18px" }}>⚠️</span>
+                <div style={{ fontSize: "13px", color: T.dark }}>
+                  <strong>Demo mode:</strong> the backend wasn't reachable, so this is sample
+                  output — not a real submission.
                 </div>
               </div>
             )}
