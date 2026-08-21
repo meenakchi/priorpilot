@@ -5,12 +5,12 @@ exports.buildJustificationPrompt = buildJustificationPrompt;
 function buildPriorAuthPrompt(patient, medication, conditions) {
     const conditionsList = conditions
         .map((c) => {
-        const coding = c.code.coding[0];
+        const coding = c.code.coding?.[0];
         return `- ${c.code.text} (ICD-10: ${coding?.code || 'unknown'}) — onset: ${c.onsetDateTime || 'unknown'}`;
     })
         .join('\n');
     const medName = medication.medicationCodeableConcept.text;
-    const medCoding = medication.medicationCodeableConcept.coding[0];
+    const medCoding = medication.medicationCodeableConcept.coding?.[0];
     const dosage = medication.dosageInstruction?.[0]?.text || 'Per prescriber instructions';
     const reason = medication.reasonCode?.[0]?.text || 'See conditions';
     return `You are drafting a prior authorization request. Using ONLY the clinical data below, output a JSON object.
@@ -44,13 +44,16 @@ Output ONLY this JSON (no markdown, no explanation):
   "previousTreatments": "<list treatments already tried and failed, or 'None documented in records'>",
   "prescribingPhysician": "<physician name>",
   "physicianNPI": "<NPI if available, else 'On file with prescriber'>",
-  "urgency": "<'routine' | 'urgent' | 'emergent' based on clinical picture>",
-  "supportingDocumentation": ["<list of documents that would strengthen the PA, e.g. 'Lab results showing severity', 'Photos of skin lesions'"]
+    "urgency": "<'routine' | 'urgent' | 'emergent' based on clinical picture>",
+    "supportingDocumentation": ["<list of documents that would strengthen the PA, e.g. 'Lab results showing severity', 'Photos of skin lesions'"],
+    "evidence": [{ "resourceId": "<FHIR resource id>", "excerpt": "<short excerpt from the resource supporting the assertion>" }],
+    "confidenceScore": "<number 0.0-1.0 indicating AI confidence>",
+    "sourceResourceIds": ["<list of FHIR resource ids used>"]
 }`;
 }
 function buildJustificationPrompt(patient, medication, conditions) {
     const primaryCondition = conditions[0];
-    const icd10 = primaryCondition?.code.coding[0]?.code || 'N/A';
+    const icd10 = primaryCondition?.code.coding?.[0]?.code || 'N/A';
     const diagnosisName = primaryCondition?.code.text || 'documented condition';
     return `Write a formal medical necessity letter for prior authorization.
 

@@ -56,9 +56,11 @@ app.use((req, _res, next) => {
 });
 
 // ── Simulated payer portal ──────────────────────────────────────────────────────
-// Static page that portalAutomation.service.ts drives with Playwright, so the
-// "submit" step is a real browser filling and clicking a form rather than a
-// timer + fake reference number. Clearly labeled as simulated on the page itself.
+// Static page that services/insurer/portalAutomation.service.ts drives with a
+// real headless Playwright browser during submitPriorAuth() — a real page
+// load, real form fill, real click, and the reference number is read back
+// from the portal's own confirmation DOM. Clearly labeled as simulated on
+// the page itself (no real payer receives this data).
 app.use('/portal', express.static(path.join(__dirname, '..', 'public', 'portal')));
 
 // ── Routes ────────────────────────────────────────────────────────────────────

@@ -1,44 +1,31 @@
-import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../../utils/logger';
 import { PriorAuthForm, SubmissionResult } from '../../utils/types';
+import { portalAutomationService } from './portalAutomation.Service';
 
 /**
  * Submission service — sends the completed PA form to the insurer.
  *
  * In production: integrate with CoverMyMeds API, Surescripts, or direct
- * insurer EDI/portal APIs. For hackathon: realistic simulation with
- * proper response structure.
+ * insurer EDI/portal APIs. For this build, submission is a real Playwright
+ * browser driving the simulated PayerConnect portal (public/portal/index.html).
  */
 export class SubmissionService {
-  async submitPriorAuth(
-    insurerId: string,
-    form: PriorAuthForm
-  ): Promise<SubmissionResult> {
+  async submitPriorAuth(insurerId: string, form: PriorAuthForm): Promise<SubmissionResult> {
     logger.info(`[Submission] Submitting PA to insurer: ${insurerId}`, {
       medication: form.medicationRequested,
       patient: form.patientName,
     });
 
-    // Validate required fields before submission
     this.validateForm(form);
 
-    // In production, make HTTP call to insurer API or EDI endpoint
-    // await this.callInsurerAPI(insurerId, form);
-
-    // Simulate realistic network latency
-    await sleep(1500);
-
-    const referenceNumber = `PA-${Date.now()}-${uuidv4().slice(0, 6).toUpperCase()}`;
-    const estimatedDecisionDate = getBusinessDaysFromNow(insurerId);
+    const portalResult = await portalAutomationService.submitToPortal(form);
 
     const result: SubmissionResult = {
-      referenceNumber,
-      status: 'submitted',
-      estimatedDecisionDate,
-      submittedAt: new Date().toISOString(),
+      ...portalResult,
+      estimatedDecisionDate: getBusinessDaysFromNow(insurerId),
     };
 
-    logger.info(`[Submission] PA submitted. Reference: ${referenceNumber}`);
+    logger.info(`[Submission] PA submitted via portal automation. Reference: ${result.referenceNumber}`);
     return result;
   }
 
@@ -59,10 +46,6 @@ export class SubmissionService {
       throw new Error(`PA form validation failed. Missing fields: ${missing.join(', ')}`);
     }
   }
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
 }
 
 function getBusinessDaysFromNow(insurerId: string): string {

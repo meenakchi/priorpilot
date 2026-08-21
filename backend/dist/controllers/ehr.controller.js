@@ -8,10 +8,11 @@ const demoFHIR_service_1 = require("../services/ehr/demoFHIR.service");
 const fhir_service_1 = require("../services/ehr/fhir.service");
 const tokenVault_service_1 = require("../services/auth/tokenVault.service");
 const logger_1 = require("../utils/logger");
+const env_1 = require("../config/env");
 async function getClinicalSnapshot(req, res, next) {
     try {
         const { patientId } = req.params;
-        const useDemo = req.query.demo === 'true' || process.env.NODE_ENV === 'development';
+        const useDemo = req.query.demo === 'true' || env_1.env.useDemoFhirDefault;
         if (!patientId) {
             res.status(400).json({ error: 'patientId is required' });
             return;
@@ -36,7 +37,7 @@ async function getClinicalSnapshot(req, res, next) {
 async function getPatient(req, res, next) {
     try {
         const { patientId } = req.params;
-        const useDemo = req.query.demo === 'true' || process.env.NODE_ENV === 'development';
+        const useDemo = req.query.demo === 'true' || env_1.env.useDemoFhirDefault;
         if (useDemo) {
             const patient = await demoFHIR_service_1.demoFHIRService.getPatient(patientId);
             res.json(patient);
@@ -55,7 +56,7 @@ async function getPatient(req, res, next) {
 async function getMedications(req, res, next) {
     try {
         const { patientId } = req.params;
-        const useDemo = req.query.demo === 'true' || process.env.NODE_ENV === 'development';
+        const useDemo = req.query.demo === 'true' || env_1.env.useDemoFhirDefault;
         if (useDemo) {
             const meds = await demoFHIR_service_1.demoFHIRService.getMedicationRequests(patientId);
             res.json(meds);
@@ -74,7 +75,7 @@ async function getMedications(req, res, next) {
 async function getConditions(req, res, next) {
     try {
         const { patientId } = req.params;
-        const useDemo = req.query.demo === 'true' || process.env.NODE_ENV === 'development';
+        const useDemo = req.query.demo === 'true' || env_1.env.useDemoFhirDefault;
         if (useDemo) {
             const conditions = await demoFHIR_service_1.demoFHIRService.getConditions(patientId);
             res.json(conditions);

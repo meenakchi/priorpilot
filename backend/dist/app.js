@@ -3,6 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+const path_1 = __importDefault(require("path"));
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const express_session_1 = __importDefault(require("express-session"));
@@ -51,6 +52,11 @@ app.use((req, _res, next) => {
     logger_1.logger.info(`${req.method} ${req.path}`);
     next();
 });
+// ── Simulated payer portal ──────────────────────────────────────────────────────
+// Static page that portalAutomation.service.ts drives with Playwright, so the
+// "submit" step is a real browser filling and clicking a form rather than a
+// timer + fake reference number. Clearly labeled as simulated on the page itself.
+app.use('/portal', express_1.default.static(path_1.default.join(__dirname, '..', 'public', 'portal')));
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/api/auth', auth_routes_1.default);
 app.use('/api/ehr', ehr_routes_1.default);

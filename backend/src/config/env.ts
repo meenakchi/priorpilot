@@ -29,6 +29,7 @@ export const env = {
   openaiModel: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
   epicFhirBaseUrl: process.env.EPIC_FHIR_BASE_URL || 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4',
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
+  backendBaseUrl: process.env.BACKEND_BASE_URL || `http://localhost:${process.env.PORT || 3001}`,
   nodeEnv: process.env.NODE_ENV || 'development',
   sessionSecret: process.env.SESSION_SECRET!,
   // Explicit, independent toggle for demo/sandbox FHIR data. Previously this

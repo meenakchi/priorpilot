@@ -11,12 +11,12 @@ const demoFHIR_service_1 = require("../ehr/demoFHIR.service");
 const openai_service_1 = require("./openai.service");
 const requirements_service_1 = require("../insurer/requirements.service");
 const submission_service_1 = require("../insurer/submission.service");
-// Tool definitions for OpenAI to call
+// Tool definitions for OpenAI function-calling. Use `parameters` to match OpenAI's function schema.
 const PA_TOOLS = [
     {
         name: 'get_patient_context',
         description: 'Fetch patient demographics and insurance info from FHIR',
-        input_schema: {
+        parameters: {
             type: 'object',
             properties: {
                 patient_id: { type: 'string', description: 'The FHIR patient ID' },
@@ -27,7 +27,7 @@ const PA_TOOLS = [
     {
         name: 'get_medications',
         description: 'Fetch active medication requests for a patient',
-        input_schema: {
+        parameters: {
             type: 'object',
             properties: {
                 patient_id: { type: 'string', description: 'The FHIR patient ID' },
@@ -38,7 +38,7 @@ const PA_TOOLS = [
     {
         name: 'get_conditions',
         description: 'Fetch active diagnoses and conditions for a patient',
-        input_schema: {
+        parameters: {
             type: 'object',
             properties: {
                 patient_id: { type: 'string', description: 'The FHIR patient ID' },
@@ -49,7 +49,7 @@ const PA_TOOLS = [
     {
         name: 'get_insurer_requirements',
         description: 'Get the PA requirements for a specific insurer',
-        input_schema: {
+        parameters: {
             type: 'object',
             properties: {
                 insurer_id: { type: 'string', description: 'The insurer ID (e.g. BCBS, AETNA)' },
@@ -60,7 +60,7 @@ const PA_TOOLS = [
     {
         name: 'draft_pa_form',
         description: 'Draft the prior authorization form using patient clinical data',
-        input_schema: {
+        parameters: {
             type: 'object',
             properties: {
                 patient_id: { type: 'string' },
@@ -73,7 +73,7 @@ const PA_TOOLS = [
     {
         name: 'submit_pa_form',
         description: 'Submit the completed PA form to the insurer',
-        input_schema: {
+        parameters: {
             type: 'object',
             properties: {
                 insurer_id: { type: 'string' },
@@ -85,7 +85,7 @@ const PA_TOOLS = [
     {
         name: 'check_completeness',
         description: 'Verify that all required fields are present before submission',
-        input_schema: {
+        parameters: {
             type: 'object',
             properties: {
                 form: { type: 'object', description: 'The PA form to validate' },
@@ -131,33 +131,80 @@ Complete the full workflow: gather records, draft the PA form, validate it, and 
         while (iterations < MAX_ITERATIONS) {
             iterations++;
             logger_1.logger.info(`[AgentLoop] Iteration ${iterations}`);
-            const response = await this.client.responses.create({
+            // Call chat completions with function definitions so the model can request tool executions.
+            const chatResponse = await this.client.chat.completions.create({
                 model: env_1.env.openaiModel,
-                input: [
+                messages: [
                     { role: 'system', content: systemPrompt },
-                    ...messages.map((message) => ({ role: message.role, content: message.content }))
+                    ...messages.map((m) => ({ role: m.role, content: m.content, name: m.name, function_call: m.function_call })),
                 ],
+                functions: PA_TOOLS,
+                function_call: 'auto',
+                temperature: 0.0,
             });
-            const responseText = typeof response.output_text === 'string' ? response.output_text : '';
-            if (responseText) {
-                logger_1.logger.info(`[AgentLoop] Agent: ${responseText.slice(0, 200)}`);
-                agentLog.push({ role: 'assistant', content: responseText });
-                messages.push({ role: 'assistant', content: responseText });
-            }
-            if (!responseText) {
-                logger_1.logger.info('[AgentLoop] Agent completed task');
+            const choice = chatResponse.choices?.[0];
+            const message = choice?.message;
+            if (!message) {
+                logger_1.logger.info('[AgentLoop] No message from model; ending loop');
                 break;
             }
-            // For the simplified OpenAI flow, we treat the assistant output as the final step and continue
-            // by invoking the drafting/submission tools directly from the workflow service.
+            // If the model requested a function call, execute it and provide the result back to the model.
+            if (message.function_call) {
+                const fn = message.function_call;
+                const fnName = fn.name;
+                let fnArgs = {};
+                try {
+                    fnArgs = JSON.parse(fn.arguments || '{}');
+                }
+                catch (err) {
+                    logger_1.logger.error('[AgentLoop] Failed to parse function arguments', err);
+                }
+                logger_1.logger.info(`[AgentLoop] Model requested function: ${fnName}`);
+                agentLog.push({ role: 'assistant', content: `Calling ${fnName}(${JSON.stringify(fnArgs)})` });
+                // Record the assistant's function_call turn itself — OpenAI requires this
+                // to precede the matching `function` role message, or the next call 400s.
+                messages.push({ role: 'assistant', content: null, function_call: { name: fnName, arguments: fn.arguments || '{}' } });
+                const toolResult = await this.executeTool(fnName, fnArgs, sessionId, context);
+                // Capture terminal artifacts as they're produced — this is what the
+                // caller actually needs back, not just the transcript.
+                if (fnName === 'draft_pa_form') {
+                    finalForm = toolResult;
+                }
+                if (fnName === 'submit_pa_form') {
+                    submissionResult = toolResult;
+                }
+                // Add the function result to messages so the model can continue reasoning.
+                // The `function` role message MUST carry `name`, or OpenAI rejects the request.
+                const functionResultStr = typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult);
+                messages.push({ role: 'function', name: fnName, content: functionResultStr });
+                agentLog.push({ role: 'function', content: functionResultStr });
+                // Continue to next iteration to let the model incorporate the tool output.
+                continue;
+            }
+            // If the model replied with assistant content (no function call), record it and break.
+            const assistantText = message.content ?? '';
+            if (assistantText) {
+                logger_1.logger.info(`[AgentLoop] Assistant: ${assistantText.slice(0, 200)}`);
+                agentLog.push({ role: 'assistant', content: assistantText });
+                messages.push({ role: 'assistant', content: assistantText });
+            }
             break;
         }
+        if (iterations >= MAX_ITERATIONS && !submissionResult) {
+            logger_1.logger.info(`[AgentLoop] Hit MAX_ITERATIONS (${MAX_ITERATIONS}) without a submission`);
+            agentLog.push({ role: 'system', content: `Stopped after ${MAX_ITERATIONS} iterations without completing submission.` });
+        }
+        const session = sessionCache.get(sessionId);
         sessionCache.delete(sessionId);
         return {
             success: !!submissionResult,
             form: finalForm,
             submissionResult,
+            patient: session?.patient,
+            medications: session?.medications,
+            conditions: session?.conditions,
             agentLog,
+            error: !submissionResult ? 'Agent did not reach submission before the conversation ended' : undefined,
         };
     }
     async executeTool(name, input, sessionId, _context) {
@@ -187,7 +234,7 @@ Complete the full workflow: gather records, draft the PA form, validate it, and 
                 return conditions.map(c => ({
                     id: c.id,
                     diagnosis: c.code.text,
-                    icd10: c.code.coding[0]?.code,
+                    icd10: c.code.coding?.[0]?.code,
                     onset: c.onsetDateTime,
                 }));
             }

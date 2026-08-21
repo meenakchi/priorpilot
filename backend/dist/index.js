@@ -8,6 +8,8 @@ dotenv_1.default.config();
 const app_1 = __importDefault(require("./app"));
 const logger_1 = require("./utils/logger");
 const env_1 = require("./config/env");
+// Start background worker for workflows (runs in-process for demo)
+require("./workers/priorAuth.worker");
 (0, env_1.validateEnv)();
 const PORT = process.env.PORT || 3001;
 app_1.default.listen(PORT, () => {
