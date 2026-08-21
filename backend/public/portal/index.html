@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>PayerConnect Provider Portal — Prior Authorization Submission</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; background: #f4f6f8; margin: 0; padding: 40px; color: #1a2b3c; }
+    .card { max-width: 640px; margin: 0 auto; background: #fff; border: 1px solid #d7dde3; border-radius: 8px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    .subtitle { color: #5a6b7a; font-size: 13px; margin-bottom: 24px; }
+    label { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 4px; }
+    input, textarea, select { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #c3ccd4; border-radius: 4px; font-size: 14px; }
+    textarea { min-height: 70px; resize: vertical; }
+    button { margin-top: 22px; background: #1a5fb4; color: #fff; border: none; padding: 10px 20px; border-radius: 4px; font-size: 14px; cursor: pointer; }
+    button:hover { background: #164d92; }
+    #confirmation { display: none; margin-top: 24px; padding: 16px; background: #e6f4ea; border: 1px solid #b6dfc0; border-radius: 6px; }
+    #confirmation h2 { margin: 0 0 6px; font-size: 15px; color: #1e7a34; }
+    #confirmation p { margin: 2px 0; font-size: 13px; }
+    .badge { display: inline-block; background: #eef2f6; color: #5a6b7a; font-size: 11px; padding: 2px 8px; border-radius: 10px; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <span class="badge">Simulated payer portal — for demo purposes only</span>
+    <h1>PayerConnect Provider Portal</h1>
+    <div class="subtitle">Prior Authorization Submission Form</div>
+
+    <form id="pa-form">
+      <label for="patientName">Patient Name</label>
+      <input id="patientName" name="patientName" type="text" required />
+
+      <label for="patientDOB">Patient Date of Birth</label>
+      <input id="patientDOB" name="patientDOB" type="text" required />
+
+      <label for="memberId">Member ID</label>
+      <input id="memberId" name="memberId" type="text" required />
+
+      <label for="medicationRequested">Medication Requested</label>
+      <input id="medicationRequested" name="medicationRequested" type="text" required />
+
+      <label for="icd10Code">ICD-10 Diagnosis Code</label>
+      <input id="icd10Code" name="icd10Code" type="text" required />
+
+      <label for="diagnosis">Diagnosis</label>
+      <input id="diagnosis" name="diagnosis" type="text" required />
+
+      <label for="clinicalJustification">Clinical Justification</label>
+      <textarea id="clinicalJustification" name="clinicalJustification" required></textarea>
+
+      <label for="prescribingPhysician">Prescribing Physician</label>
+      <input id="prescribingPhysician" name="prescribingPhysician" type="text" required />
+
+      <label for="urgency">Urgency</label>
+      <select id="urgency" name="urgency">
+        <option value="routine">Routine</option>
+        <option value="urgent">Urgent</option>
+        <option value="emergent">Emergent</option>
+      </select>
+
+      <button type="submit" id="submit-btn">Submit Prior Authorization</button>
+    </form>
+
+    <div id="confirmation">
+      <h2>Submission received</h2>
+      <p id="conf-ref"></p>
+      <p id="conf-time"></p>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('pa-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var ref = 'PC-' + Date.now().toString().slice(-8);
+      document.getElementById('conf-ref').textContent = 'Confirmation number: ' + ref;
+      document.getElementById('conf-time').textContent = 'Submitted at: ' + new Date().toISOString();
+      var confirmation = document.getElementById('confirmation');
+      confirmation.style.display = 'block';
+      confirmation.setAttribute('data-confirmation-ref', ref);
+      confirmation.setAttribute('data-testid', 'portal-confirmation');
+      document.getElementById('submit-btn').disabled = true;
+      document.getElementById('submit-btn').textContent = 'Submitted';
+    });
+  </script>
+</body>
+</html>

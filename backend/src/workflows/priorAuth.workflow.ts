@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../utils/logger';
-import { PriorAuthRequest, PriorAuthStatus } from '../utils/types';
+import { PriorAuthRequest } from '../utils/types';
 import * as requestStoreLib from '../lib/requestStore';
 import { tokenVaultService } from '../services/auth/tokenVault.service';
 import { cibaService } from '../services/auth/ciba.service';
@@ -144,19 +144,6 @@ export class PriorAuthWorkflow {
       await requestStoreLib.updateStatus(requestId, 'error');
       throw error;
     }
-  }
-
-  getRequest(requestId: string): PriorAuthRequest | undefined {
-    // Synchronous wrapper - callers should prefer async store methods
-    throw new Error('Use async request store methods: getRequest(id) from lib/requestStore');
-  }
-
-  listRequests(patientId: string): PriorAuthRequest[] {
-    throw new Error('Use async listRequests(patientId) from lib/requestStore');
-  }
-
-  private updateStatus(requestId: string, status: PriorAuthStatus): void {
-    throw new Error('Use async updateStatus(id,status) from lib/requestStore');
   }
 }
 

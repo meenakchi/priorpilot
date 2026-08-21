@@ -1,3 +1,4 @@
+import path from 'path';
 import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
@@ -53,6 +54,12 @@ app.use((req, _res, next) => {
   logger.info(`${req.method} ${req.path}`);
   next();
 });
+
+// ── Simulated payer portal ──────────────────────────────────────────────────────
+// Static page that portalAutomation.service.ts drives with Playwright, so the
+// "submit" step is a real browser filling and clicking a form rather than a
+// timer + fake reference number. Clearly labeled as simulated on the page itself.
+app.use('/portal', express.static(path.join(__dirname, '..', 'public', 'portal')));
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);

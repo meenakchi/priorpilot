@@ -20,6 +20,11 @@ interface User {
   picture?: string;
 }
 
+interface Evidence {
+  resourceId: string;
+  excerpt: string;
+}
+
 interface PriorAuthForm {
   patientName: string;
   patientDOB: string;
@@ -34,6 +39,8 @@ interface PriorAuthForm {
   physicianNPI: string;
   urgency: "routine" | "urgent" | "emergent";
   supportingDocumentation: string[];
+  evidence?: Evidence[];
+  confidenceScore?: number;
 }
 
 interface SubmissionResult {
