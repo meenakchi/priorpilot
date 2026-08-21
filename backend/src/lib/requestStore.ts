@@ -1,37 +1,47 @@
-import { redis } from './redisClient';
 import { PriorAuthRequest } from '../utils/types';
 
-const KEY_PREFIX = 'pa:request:';
-const PATIENT_SET_PREFIX = 'pa:patient:';
+/**
+ * In-memory request store.
+ *
+ * This replaces the previous Redis-backed implementation. Redis added an
+ * external infra dependency that isn't worth it for a single-process demo —
+ * this app has no horizontal scaling or multi-worker needs. State lives in
+ * memory and resets on server restart, which is fine for this use case.
+ *
+ * If you later need persistence across restarts or multiple processes,
+ * swap this module back to a Redis (or Postgres/SQLite) implementation —
+ * every other file imports only the functions below, not this file's
+ * internals, so the swap is contained here.
+ */
+
+const requests = new Map<string, PriorAuthRequest>();
+const patientIndex = new Map<string, Set<string>>();
 
 export async function setRequest(id: string, req: PriorAuthRequest): Promise<void> {
-  await redis.set(`${KEY_PREFIX}${id}`, JSON.stringify(req));
-  // Add to patient index for listing
-  await redis.sadd(`${PATIENT_SET_PREFIX}${req.patientId}`, id);
+  requests.set(id, req);
+
+  if (!patientIndex.has(req.patientId)) {
+    patientIndex.set(req.patientId, new Set());
+  }
+  patientIndex.get(req.patientId)!.add(id);
 }
 
 export async function getRequest(id: string): Promise<PriorAuthRequest | undefined> {
-  const raw = await redis.get(`${KEY_PREFIX}${id}`);
-  if (!raw) return undefined;
-  try {
-    return JSON.parse(raw) as PriorAuthRequest;
-  } catch {
-    return undefined;
-  }
+  return requests.get(id);
 }
 
 export async function listRequests(patientId: string): Promise<PriorAuthRequest[]> {
-  const ids = await redis.smembers(`${PATIENT_SET_PREFIX}${patientId}`);
-  if (!ids || ids.length === 0) return [];
-  const keys = ids.map((id) => `${KEY_PREFIX}${id}`);
-  const raws = await redis.mget(...keys);
-  return raws.filter(Boolean).map((r) => JSON.parse(r!)) as PriorAuthRequest[];
+  const ids = patientIndex.get(patientId);
+  if (!ids || ids.size === 0) return [];
+  return Array.from(ids)
+    .map((id) => requests.get(id))
+    .filter((r): r is PriorAuthRequest => r !== undefined);
 }
 
 export async function updateStatus(id: string, status: string): Promise<void> {
-  const req = await getRequest(id);
+  const req = requests.get(id);
   if (!req) return;
   req.status = status as any;
   req.updatedAt = new Date().toISOString();
-  await setRequest(id, req);
+  requests.set(id, req);
 }

@@ -20,7 +20,7 @@ jest.mock('openai', () => {
   }));
 });
 
-import { openaiService, OpenAIService } from '../../services/ai/openai.service';
+import { openaiService, OpenAIService } from '../services/ai/openai.service';
 
 describe('OpenAIService', () => {
   it('parses a valid JSON response into a PriorAuthForm', async () => {

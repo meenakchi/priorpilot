@@ -298,7 +298,7 @@ Complete the full workflow: gather records, draft the PA form, validate it, and 
         return conditions.map(c => ({
           id: c.id,
           diagnosis: c.code.text,
-          icd10: c.code.coding[0]?.code,
+          icd10: c.code.coding?.[0]?.code,
           onset: c.onsetDateTime,
         }));
       }

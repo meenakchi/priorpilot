@@ -100,13 +100,13 @@ export class PriorAuthWorkflow {
       const primaryMed = medications.find((m) => m.id === input.medicationId) || medications[0];
       if (primaryMed) {
         request.medicationName = primaryMed.medicationCodeableConcept.text;
-        request.medicationCode = primaryMed.medicationCodeableConcept.coding[0]?.code || '';
+        request.medicationCode = primaryMed.medicationCodeableConcept.coding?.[0]?.code || '';
         request.prescribingPhysician = primaryMed.requester?.display || '';
       }
       const primaryCondition = conditions[0];
       if (primaryCondition) {
         request.diagnosis = primaryCondition.code.text;
-        request.diagnosisCode = primaryCondition.code.coding[0]?.code || '';
+        request.diagnosisCode = primaryCondition.code.coding?.[0]?.code || '';
       }
       await requestStoreLib.setRequest(requestId, { ...request });
 
@@ -136,7 +136,7 @@ export class PriorAuthWorkflow {
       await requestStoreLib.setRequest(requestId, final);
 
       logger.info(`[Workflow] ✅ PA workflow complete. Reference: ${result.referenceNumber}`);
-      return requestStore.get(requestId)!;
+      return (await requestStoreLib.getRequest(requestId))!;
 
     } catch (err: unknown) {
       const error = err as Error;

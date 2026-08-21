@@ -2,7 +2,7 @@ import express from 'express';
 import request from 'supertest';
 
 // Mock auth middleware to inject req.oidc and allow all requests
-jest.mock('../../middleware/auth.middleware', () => ({
+jest.mock('../middleware/auth.middleware', () => ({
   requireAuth: (req: any, _res: any, next: any) => {
     req.oidc = { accessToken: { access_token: 'fake-token' }, user: { email: 'test@example.com' } };
     next();
@@ -10,7 +10,7 @@ jest.mock('../../middleware/auth.middleware', () => ({
 }));
 
 // Mock the agent loop to return a deterministic result
-jest.mock('../../services/ai/agentLoop.service', () => ({
+jest.mock('../services/ai/agentLoop.service', () => ({
   priorAuthAgentLoop: {
     run: jest.fn().mockResolvedValue({
       medications: [
@@ -26,7 +26,7 @@ jest.mock('../../services/ai/agentLoop.service', () => ({
   },
 }));
 
-import router from '../../routes/priorauth.routes';
+import router from '../routes/priorauth.routes';
 
 describe('priorauth routes (basic)', () => {
   let app: express.Express;

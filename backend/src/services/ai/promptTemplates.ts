@@ -7,13 +7,13 @@ export function buildPriorAuthPrompt(
 ): string {
   const conditionsList = conditions
     .map((c) => {
-      const coding = c.code.coding[0];
+      const coding = c.code.coding?.[0];
       return `- ${c.code.text} (ICD-10: ${coding?.code || 'unknown'}) — onset: ${c.onsetDateTime || 'unknown'}`;
     })
     .join('\n');
 
   const medName = medication.medicationCodeableConcept.text;
-  const medCoding = medication.medicationCodeableConcept.coding[0];
+  const medCoding = medication.medicationCodeableConcept.coding?.[0];
   const dosage = medication.dosageInstruction?.[0]?.text || 'Per prescriber instructions';
   const reason = medication.reasonCode?.[0]?.text || 'See conditions';
 
@@ -62,7 +62,7 @@ export function buildJustificationPrompt(
   conditions: FHIRCondition[]
 ): string {
   const primaryCondition = conditions[0];
-  const icd10 = primaryCondition?.code.coding[0]?.code || 'N/A';
+  const icd10 = primaryCondition?.code.coding?.[0]?.code || 'N/A';
   const diagnosisName = primaryCondition?.code.text || 'documented condition';
 
   return `Write a formal medical necessity letter for prior authorization.
