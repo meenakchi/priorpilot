@@ -63,6 +63,15 @@ app.use((req, _res, next) => {
 // the page itself (no real payer receives this data).
 app.use('/portal', express.static(path.join(__dirname, '..', 'public', 'portal')));
 
+// ── Frontend (served from the same origin as the API) ──────────────────────────
+// Serving the built React app directly from this Express server means the
+// frontend and backend share one origin, which avoids third-party/cross-site
+// cookie blocking in modern browsers (Chrome/Safari treat different
+// *.onrender.com subdomains as separate sites, so the Auth0 session cookie
+// was being silently dropped when frontend and backend were on two URLs).
+const frontendDist = path.join(__dirname, '..', 'frontend-dist');
+app.use(express.static(frontendDist));
+
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/ehr', ehrRoutes);
@@ -71,7 +80,18 @@ app.use('/api/token-vault', tokenVaultRoutes);
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', service: 'PriorAgent', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', service: 'PriorPilot', timestamp: new Date().toISOString() });
+});
+
+// ── SPA fallback ─────────────────────────────────────────────────────────────
+// Any GET that isn't an API route or a static asset falls through to
+// index.html so the React app can handle client-side routing.
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api') || req.path === '/health' || req.path.startsWith('/portal')) {
+    next();
+    return;
+  }
+  res.sendFile(path.join(frontendDist, 'index.html'));
 });
 
 // ── Global error handler ──────────────────────────────────────────────────────
