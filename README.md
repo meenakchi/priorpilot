@@ -1,111 +1,78 @@
 # PriorPilot
 
-## Overview
+**An AI agent that drafts prior authorization requests from real patient FHIR data — so clinicians spend less time on paperwork and more time on patients.**
 
-Prior authorization is one of the most repetitive administrative processes in healthcare. Before many medications or treatments can be approved, providers must gather patient records, review clinical history, and complete insurer specific documentation. This process delays patient care and takes valuable time away from clinicians.
+Built for NeuralSprint.
 
-I built PriorPilot to explore how AI can reduce this administrative burden. PriorPilot securely retrieves patient data from Epic FHIR APIs, uses an AI model to analyze the patient's clinical information, and generates a structured prior authorization summary that clinicians can review before submission. My goal was not to replace clinical decision making, but to reduce the amount of manual work required to prepare a prior authorization request.
+## The Problem
 
-## Motivation
+Prior authorization is one of the most repetitive, time-consuming administrative processes in healthcare. Before many medications or treatments can be approved, providers have to gather patient records, review clinical history, and fill out insurer-specific documentation by hand. This delays patient care and eats up clinician time that should be going toward, well, patients.
 
-I wanted to investigate whether modern AI agents could automate one of healthcare's most time consuming workflows while maintaining interoperability and secure access to patient data.
+## What PriorPilot Does
 
-Rather than asking clinicians to manually search through multiple records, I designed PriorPilot to collect structured clinical data, organize the relevant information, and present it in a concise format that supports the prior authorization process.
+PriorPilot automates the *prep work* of a prior authorization request end to end:
 
-## Features
+1. Authenticates the user and securely brokers Epic access via **Auth0 Token Vault** (no long-lived provider secrets ever touch the backend)
+2. Runs a **CIBA step-up consent** flow so the patient can approve data access without the app seeing their Epic credentials
+3. Pulls structured clinical data — medications, conditions, labs — from **Epic FHIR APIs**
+4. Feeds that data to an **AI agent loop** that drafts a structured PA form plus a clinical justification narrative, grounded only in the facts present in the records
+5. Runs a real headless-browser submission to the (simulated) insurer portal
+6. Surfaces everything to the clinician for review before anything is submitted — PriorPilot drafts, it never decides
 
-* Secure authentication using Auth0
-* OAuth credential management with Auth0 Token Vault
-* Integration with Epic FHIR APIs
-* Retrieval of structured patient clinical data
-* AI generated prior authorization summaries
-* Reviewable outputs that allow clinicians to verify information before submission
+## Why It's Built This Way
 
-## How It Works
+We didn't want a demo that just calls an LLM and prints text. We wanted to prove the *whole pipeline* — auth, interoperability, agent orchestration, and submission — could work together as something closer to production-shaped software. That's why there's a real Token Vault integration, a real CIBA consent flow, and a real Playwright-driven submission step instead of a mocked one.
 
-The application follows the workflow below:
+## Tech Stack
 
-1. I authenticate the user through Auth0.
-2. I securely retrieve OAuth credentials using Auth0 Token Vault.
-3. I request patient data from Epic FHIR APIs.
-4. I extract relevant clinical information including diagnoses, medications, allergies, and laboratory results.
-5. I send the structured patient information to the AI model for analysis.
-6. I generate a structured prior authorization summary that can be reviewed before submission.
+| Layer | Tools |
+|---|---|
+| Frontend | React, TypeScript, Vite, Tailwind CSS |
+| Backend | Node.js, Express |
+| Auth | Auth0, Auth0 Token Vault, CIBA |
+| Healthcare | SMART on FHIR, Epic FHIR APIs |
+| AI | OpenAI (agent loop / function calling) |
+| Automation | Playwright (headless-browser portal submission) |
 
-## Technology Stack
+## Architecture
 
-### Frontend
-
-* React
-* TypeScript
-* Vite
-* Tailwind CSS
-
-### Backend
-
-* Node.js
-* Express.js
-
-### Authentication
-
-* Auth0
-* Auth0 Token Vault
-
-### Healthcare Standards
-
-* SMART on FHIR
-* Epic FHIR APIs
-
-### AI
-
-* Openai
-
-## Repository Structure
-
-```text
-frontend/
-    React application and user interface
-
-backend/
-    Express server
-    Authentication
-    FHIR integration
-    AI orchestration
-
-docs/
-    Architecture and supporting documentation
-
-README.md
 ```
+┌─────────────┐        ┌──────────────────────────────────────────┐
+│  Frontend   │  HTTP  │                 Backend                   │
+│  React +    │◄──────►│              (Express API)                │
+│  Vite +     │        │  controllers/  routes/  workflows/         │
+│  Tailwind   │        └───────┬─────────┬─────────┬───────────────┘
+└─────────────┘                │         │         │
+                    ┌───────────┘         │         └───────────┐
+                    ▼                     ▼                     ▼
+            ┌───────────────┐   ┌─────────────────┐   ┌──────────────────┐
+            │     Auth0      │   │   Epic FHIR API   │   │   OpenAI API      │
+            │ + Token Vault  │   │  (or demo mode)   │   │ (drafts PA forms) │
+            └───────────────┘   └─────────────────┘   └──────────────────┘
+```
+
+The core orchestration lives in `backend/src/workflows/priorAuth.workflow.ts`, which runs: check insurer requirements → CIBA step-up consent → token retrieval via Token Vault → fetch FHIR data → AI drafting → submission. Full breakdown in [`docs/architecture.md`](docs/architecture.md).
+
+## What's Real vs. Demo
+
+Being upfront about this since judges (rightly) dig into it:
+
+- **Real:** Auth0 authentication and Token Vault token exchange, the CIBA consent flow, OpenAI API calls, the full workflow orchestration, and the Playwright-driven portal submission.
+- **Simulated:** Epic FHIR data falls back to a static demo dataset (shaped like real FHIR resources) when a live sandbox connection isn't configured, and the insurer portal is a simulated one since no hackathon-accessible payer API exists.
 
 ## Getting Started
 
-### Clone the repository
+Clone and install:
 
 ```bash
 git clone <repository-url>
 cd priorpilot
+
+cd backend && npm install
+cd ../frontend && npm install
 ```
 
-### Install dependencies
-
-Backend
-
-```bash
-cd backend
-npm install
-```
-
-Frontend
-
-```bash
-cd frontend
-npm install
-```
-
-### Configure environment variables
-
-Create a `.env` file containing the required credentials.
+Create a `.env` file in `backend/` (see below for required variables — none of this is committed to the repo):
 
 ```env
 AUTH0_DOMAIN=
@@ -118,55 +85,47 @@ EPIC_CLIENT_SECRET=
 LLM_API_KEY=
 ```
 
-I do not store API keys, passwords, or sensitive information in this repository.
-
-### Run the backend
+Run it:
 
 ```bash
-cd backend
-npm run dev
+# backend
+cd backend && npm run dev
+
+# frontend (separate terminal)
+cd frontend && npm run dev
 ```
 
-### Run the frontend
+## Security Notes
 
-```bash
-cd frontend
-npm run dev
-```
+- No patient credentials or long-lived Epic tokens are stored by the backend — Auth0 Token Vault brokers short-lived tokens on demand.
+- API keys and secrets live in environment variables only and are gitignored.
+- Generated PA summaries are always meant for clinician review before submission — PriorPilot supports clinical judgment, it doesn't replace it.
 
 ## Current Capabilities
 
-The current implementation demonstrates the complete proof of concept.
-
-* User authentication
-* Secure token management
-* Epic FHIR integration
-* Patient data retrieval
-* AI assisted clinical analysis
-* Prior authorization summary generation
+* End-to-end auth (Auth0 + CIBA step-up consent)
+* Secure, short-lived token brokering via Token Vault
+* Live Epic FHIR data retrieval (with a demo-data fallback)
+* AI-drafted PA summary + clinical justification narrative
+* Real headless-browser submission to a simulated insurer portal
 
 ## Limitations
 
-This project is a hackathon prototype.
+This is a hackathon build, so:
 
-The application currently depends on external services including Auth0, Epic FHIR, and an LLM provider.
-
-The generated summaries should always be reviewed by healthcare professionals before submission. PriorPilot is designed to support clinicians rather than replace clinical judgement.
-
-The current implementation focuses on demonstrating an end to end workflow rather than supporting every insurer specific authorization process.
+* It depends on external services (Auth0, Epic FHIR, an LLM provider) rather than running fully standalone
+* It demonstrates one end-to-end workflow rather than every insurer's specific authorization process
+* Generated summaries should always be reviewed by a healthcare professional before anything is submitted
 
 ## Future Improvements
 
-If I continue developing PriorPilot, I would like to:
-
-* Support insurer specific authorization forms
-* Add explainable AI with evidence linked to individual FHIR resources
-* Introduce confidence scoring for generated recommendations
-* Expand support for additional FHIR resources
-* Add automated evaluation and benchmarking
-* Improve error handling and production monitoring
-* Integrate directly into clinical workflows
+* Support insurer-specific authorization forms
+* Explainable AI — link every claim in the summary back to the specific FHIR resource it came from
+* Confidence scoring for generated recommendations
+* Broader FHIR resource coverage
+* Automated evaluation/benchmarking of the AI drafting step
+* Production-grade error handling and monitoring
 
 ## Acknowledgements
 
-This project was built using Auth0 Token Vault, Epic SMART on FHIR APIs, and Claude to demonstrate how AI can reduce the administrative burden associated with prior authorization while maintaining secure access to healthcare data.
+Built using Auth0 Token Vault, Epic SMART on FHIR APIs, and OpenAI, to explore how AI agents can cut down the administrative burden of prior authorization while keeping patient data access secure and auditable.
