@@ -80,7 +80,7 @@ interface Insurer {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const BACKEND = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
+const BACKEND = import.meta.env.VITE_BACKEND_URL ?? "";
 const API = `${BACKEND}/api`;
 
 const DEMO_PATIENTS = [
