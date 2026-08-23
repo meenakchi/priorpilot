@@ -186,7 +186,7 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     });
   } catch {
     // Network-level failure (backend unreachable, CORS, offline, etc.)
-    throw new ApiError("Could not reach the PriorAgent backend.");
+    throw new ApiError("Could not reach the PriorPilot backend.");
   }
   if (!res.ok) {
     let message = `API error ${res.status}`;
@@ -241,30 +241,6 @@ function Badge({ status }: { status: WorkflowStatus }) {
   );
 }
 
-// ─── Pulse signature ────────────────────────────────────────────────────────
-// The one recurring motif: a clinical pulse line that resolves into an
-// approval check. Used in the hero, and again wherever the app is "working".
-
-function PulseSignature({ animate = true, height = 200 }: { animate?: boolean; height?: number }) {
-  return (
-    <svg viewBox="0 0 400 200" style={{ width: "100%", height, display: "block", overflow: "visible" }}>
-      <path
-        d="M8,120 L92,120 L112,72 L136,168 L160,32 L182,120 L248,120 L266,96 L282,120 L340,120"
-        fill="none"
-        stroke={T.coral}
-        strokeWidth="4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className={animate ? "pulse-line" : undefined}
-      />
-      <g className={animate ? "pulse-check" : undefined}>
-        <circle cx="356" cy="120" r="30" fill={T.green} />
-        <path d="M344,120 L353,129 L370,110" fill="none" stroke="#fff" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" />
-      </g>
-    </svg>
-  );
-}
-
 // ─── Ticker ───────────────────────────────────────────────────────────────────
 
 const TICKER_ITEMS = [
@@ -273,7 +249,7 @@ const TICKER_ITEMS = [
   "Patient-controlled",
   "Auth0 Token Vault",
   "Epic FHIR R4",
-  "Claude AI",
+  "OpenAI",
   "CIBA Consent",
   "Insurer Submission",
 ];
@@ -346,7 +322,7 @@ const HOW_IT_WORKS = [
     tint: "#E4E7DC",
     iconColor: T.blue,
     title: "Epic FHIR R4 Access",
-    desc: "Records pulled live from Epic via Auth0 Token Vault, no credentials ever stored in PriorAgent.",
+    desc: "Records retrieved from Epic via Auth0 Token Vault, no credentials ever stored in PriorPilot.",
     icon: (
       <svg width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
         <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
@@ -356,8 +332,8 @@ const HOW_IT_WORKS = [
   {
     tint: "#E8E0EA",
     iconColor: "#8A6BA8",
-    title: "Claude AI Analysis",
-    desc: "Claude reads the full clinical picture and drafts a complete, insurer-specific prior auth form in seconds.",
+    title: "AI-Drafted Analysis",
+    desc: "OpenAI reads the full clinical picture and drafts a complete, insurer-specific prior auth form in seconds.",
     icon: (
       <svg width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
         <circle cx="12" cy="12" r="10" />
@@ -443,7 +419,7 @@ function Hero({ onLogin }: { onLogin: () => void }) {
               <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
             </svg>
           </div>
-          <span style={{ fontWeight: "700", fontSize: "19px", color: T.dark, letterSpacing: "-0.02em", fontFamily: T.serif }}>PriorAgent</span>
+          <span style={{ fontWeight: "700", fontSize: "19px", color: T.dark, letterSpacing: "-0.02em", fontFamily: T.serif }}>PriorPilot</span>
           <span style={{ fontFamily: T.mono, fontSize: "10px", color: T.muted, border: `1px solid ${T.border}`, borderRadius: "5px", padding: "2px 6px", marginLeft: "2px" }}>EST 2026</span>
         </div>
 
@@ -470,7 +446,7 @@ function Hero({ onLogin }: { onLogin: () => void }) {
         <div>
           <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", color: T.muted, fontSize: "12px", fontWeight: "600", marginBottom: "18px" }}>
             <span style={{ width: "6px", height: "6px", background: T.blue, borderRadius: "50%" }} />
-            Built for the Auth0 x AI Agents Hackathon
+            AI-powered prior authorization, built end to end
           </div>
 
           <h1 style={{ fontSize: "clamp(46px, 5.5vw, 66px)", fontWeight: "700", color: T.dark, lineHeight: "1.03", letterSpacing: "-0.03em", margin: "0 0 22px", fontFamily: T.serif }}>
@@ -480,7 +456,7 @@ function Hero({ onLogin }: { onLogin: () => void }) {
           </h1>
 
           <p style={{ fontSize: "15px", color: T.muted, lineHeight: "1.7", maxWidth: "420px", margin: "0 0 32px" }}>
-            PriorAgent uses Open AI and Auth0 Token Vault to read health records, fill insurer forms, and submit prior authorizations, with CIBA patient consent at every step.
+            PriorPilot uses OpenAI and Auth0 Token Vault to read health records, draft insurer forms, and submit prior authorizations, with CIBA patient consent at every step.
           </p>
 
           <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
@@ -517,10 +493,10 @@ function Hero({ onLogin }: { onLogin: () => void }) {
             Auth0 Token Vault
           </div>
           <div style={{ position: "absolute", bottom: "16%", right: "8%", background: "#fff", border: `1.5px solid ${T.border}`, borderRadius: "12px", padding: "8px 14px", fontSize: "12px", fontWeight: "700", color: T.dark, boxShadow: "0 6px 18px rgba(27,27,24,0.06)", fontFamily: T.sans }}>
-            94% approval rate
+            CIBA patient consent
           </div>
           <div style={{ position: "absolute", bottom: "8%", left: "10%", fontFamily: T.mono, fontSize: "10px", color: T.muted }}>
-            LIVE · EPIC FHIR R4
+            EPIC FHIR R4
           </div>
         </div>
       </div>
@@ -532,7 +508,7 @@ function Hero({ onLogin }: { onLogin: () => void }) {
 
       {/* Feature chips */}
       <div style={{ position: "relative", zIndex: 5, display: "flex", justifyContent: "center", gap: "10px", flexWrap: "wrap", padding: "36px 24px 12px" }}>
-        {["Auth0 Token Vault", "CIBA Step-up Auth", "Epic FHIR R4", "Claude AI", "Insurer Submission"].map((f) => (
+        {["Auth0 Token Vault", "CIBA Step-up Auth", "Epic FHIR R4", "OpenAI", "Insurer Submission"].map((f) => (
           <span key={f} style={{ background: T.card, border: `1.5px solid ${T.border}`, borderRadius: "100px", padding: "8px 18px", fontSize: "13px", color: T.dark, fontWeight: "500" }}>
             {f}
           </span>
@@ -634,7 +610,7 @@ function WorkflowSteps({ status }: { status: WorkflowStatus }) {
   const steps = [
     { key: "pending_consent",  label: "Patient Consent (CIBA)" },
     { key: "fetching_records", label: "Fetch FHIR Records" },
-    { key: "analyzing",        label: "Claude AI Analysis" },
+    { key: "analyzing",        label: "OpenAI Analysis" },
     { key: "draft_ready",      label: "Form Drafted" },
     { key: "submitted",        label: "Submitted to Insurer" },
   ];
@@ -890,7 +866,7 @@ function ConsentModal({ show, onClose }: { show: boolean; onClose: () => void })
           </div>
           <h3 style={{ fontSize: "18px", fontWeight: "800", color: T.dark, margin: "0 0 10px", fontFamily: T.serif }}>Patient Consent Required</h3>
           <p style={{ fontSize: "14px", color: "#666", lineHeight: "1.6", margin: 0 }}>
-            PriorAgent is using <strong>Auth0 CIBA</strong> to request step-up consent from the patient before accessing health records.
+            PriorPilot is using <strong>Auth0 CIBA</strong> to request step-up consent from the patient before accessing health records.
           </p>
         </div>
         <div style={{ background: "#fef9c3", border: "1.5px solid #fde68a", borderRadius: "10px", padding: "12px 14px", fontSize: "13px", color: "#713f12", marginBottom: "20px", lineHeight: "1.6" }}>
@@ -991,7 +967,7 @@ function Dashboard({ user }: { user: User }) {
       // Only reachable when the backend itself couldn't be reached at all
       // (e.g. it's not running). Clearly label the sample data as sample
       // data — never present a fabricated result as a real submission.
-      console.warn("[PriorAgent] Backend unreachable, showing sample data:", err);
+      console.warn("[PriorPilot] Backend unreachable, showing sample data:", err);
       for (const s of progressStatuses) { setWorkflowStatus(s); await sleep(900); }
       const demoResult: PARequest = {
         id: `demo-${Date.now()}`,
@@ -1061,7 +1037,7 @@ function Dashboard({ user }: { user: User }) {
                 <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
               </svg>
             </div>
-            <span style={{ fontWeight: "800", fontSize: "18px", color: T.dark, letterSpacing: "-0.02em", fontFamily: T.serif }}>PriorAgent</span>
+            <span style={{ fontWeight: "800", fontSize: "18px", color: T.dark, letterSpacing: "-0.02em", fontFamily: T.serif }}>PriorPilot</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -1099,7 +1075,7 @@ function Dashboard({ user }: { user: User }) {
           <Chip label="Auth0 Token Vault" bg="#dbeafe" color="#1e40af" />
           <Chip label="CIBA Step-up Auth" bg="#fce7f3" color="#9d174d" />
           <Chip label="Epic FHIR R4"      bg="#dcfce7" color="#166534" />
-          <Chip label="Claude AI"         bg="#fef9c3" color="#713f12" />
+          <Chip label="OpenAI"            bg="#fef9c3" color="#713f12" />
         </div>
 
         {/* Two-column layout */}
@@ -1128,7 +1104,7 @@ function Dashboard({ user }: { user: User }) {
                   </div>
                   <h3 style={{ fontSize: "20px", fontWeight: "800", color: T.dark, margin: "0 0 10px", fontFamily: T.serif }}>Ready to automate</h3>
                   <p style={{ fontSize: "14px", color: T.muted, maxWidth: "260px", lineHeight: "1.6", margin: 0 }}>
-                    Pick a patient and insurer on the left. PriorAgent handles the rest in seconds.
+                    Pick a patient and insurer on the left. PriorPilot handles the rest in seconds.
                   </p>
                 </div>
               </div>
