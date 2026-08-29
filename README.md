@@ -75,14 +75,31 @@ cd ../frontend && npm install
 Create a `.env` file in `backend/` (see below for required variables — none of this is committed to the repo):
 
 ```env
+# Required
 AUTH0_DOMAIN=
 AUTH0_CLIENT_ID=
 AUTH0_CLIENT_SECRET=
+AUTH0_BASE_URL=
+AUTH0_SECRET=
+AUTH0_AUDIENCE=
+AUTH0_TOKEN_VAULT_URL=
+SESSION_SECRET=
 
+# Optional — omit EPIC_CLIENT_ID to fall back to demoFHIR.service.ts,
+# or set USE_DEMO_FHIR explicitly to force one path or the other
 EPIC_CLIENT_ID=
 EPIC_CLIENT_SECRET=
+EPIC_FHIR_BASE_URL=
+USE_DEMO_FHIR=
 
-LLM_API_KEY=
+# Optional — AI drafting
+OPENAI_API_KEY=
+OPENAI_MODEL=
+
+# Optional — defaults shown
+FRONTEND_URL=http://localhost:5173
+BACKEND_BASE_URL=http://localhost:3001
+PORT=3001
 ```
 
 Run it:
@@ -93,6 +110,14 @@ cd backend && npm run dev
 
 # frontend (separate terminal)
 cd frontend && npm run dev
+```
+
+## Testing
+
+The backend has a Jest test suite covering the OpenAI drafting service and the prior auth routes:
+
+```bash
+cd backend && npm run test
 ```
 
 ## Security Notes
