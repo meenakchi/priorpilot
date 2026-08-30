@@ -2,7 +2,6 @@
 
 **An AI agent that drafts prior authorization requests from real patient FHIR data — so clinicians spend less time on paperwork and more time on patients.**
 
-Built for NeuralSprint.
 
 ## The Problem
 
