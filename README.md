@@ -65,11 +65,23 @@ checkout demo here! : https://youtu.be/Q4ojHaKIl0A
 
 -- **Screenshots** 
 <img width="1924" height="1008" alt="Home page" src="https://github.com/user-attachments/assets/9bf13e92-4853-45b7-a2d9-3258f0ac0ece" />
+
+Home page
 <img width="1388" height="1004" alt="Login page with Auth0" src="https://github.com/user-attachments/assets/d1d514f9-4f4c-4201-b9c8-624034ef7eae" />
+
+Login with Auth0
 <img width="1922" height="1018" alt="Landing page" src="https://github.com/user-attachments/assets/65d1fc60-0710-4b10-ad6b-88918f02eeb3" />
+
+Landing page
 <img width="1906" height="1006" alt="patient consent" src="https://github.com/user-attachments/assets/792bef79-6cc3-4683-a9b6-e225ab76a346" />
+
+Asking for patient consent before anything starts 
 <img width="1920" height="1020" alt="Drafted PA form" src="https://github.com/user-attachments/assets/af117659-95de-430e-9884-ce3c88d8bb5e" />
+
+Drafted PA form 
 <img width="1340" height="1036" alt="image" src="https://github.com/user-attachments/assets/ed27ebfb-651f-4e4d-aca5-36066b174f7f" />
+
+Agent reasoning
 
 
 ## Getting Started
