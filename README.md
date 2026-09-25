@@ -58,10 +58,19 @@ The core orchestration lives in `backend/src/workflows/priorAuth.workflow.ts`, w
 
 ## What's Real vs. Demo
 
-Being upfront about this since judges (rightly) dig into it:
+checkout demo here! : https://youtu.be/Q4ojHaKIl0A 
 
 - **Real:** Auth0 authentication and Token Vault token exchange, the CIBA consent flow, OpenAI API calls, the full workflow orchestration, and the Playwright-driven portal submission.
 - **Simulated:** Epic FHIR data falls back to a static demo dataset (shaped like real FHIR resources) when a live sandbox connection isn't configured, and the insurer portal is a simulated one since no hackathon-accessible payer API exists.
+
+-- **Screenshots** 
+<img width="1924" height="1008" alt="Home page" src="https://github.com/user-attachments/assets/9bf13e92-4853-45b7-a2d9-3258f0ac0ece" />
+<img width="1388" height="1004" alt="Login page with Auth0" src="https://github.com/user-attachments/assets/d1d514f9-4f4c-4201-b9c8-624034ef7eae" />
+<img width="1922" height="1018" alt="Landing page" src="https://github.com/user-attachments/assets/65d1fc60-0710-4b10-ad6b-88918f02eeb3" />
+<img width="1906" height="1006" alt="patient consent" src="https://github.com/user-attachments/assets/792bef79-6cc3-4683-a9b6-e225ab76a346" />
+<img width="1920" height="1020" alt="Drafted PA form" src="https://github.com/user-attachments/assets/af117659-95de-430e-9884-ce3c88d8bb5e" />
+<img width="1340" height="1036" alt="image" src="https://github.com/user-attachments/assets/ed27ebfb-651f-4e4d-aca5-36066b174f7f" />
+
 
 ## Getting Started
 
