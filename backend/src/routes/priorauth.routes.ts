@@ -163,4 +163,110 @@ router.post('/agent/run', requireAuth, async (req: Request, res: Response, next:
     next(err);
   }
 });
+
+// Manual intake uses the same agent and submission tools, with no EHR, CIBA,
+// or Token Vault calls. The entered details are adapted to the agent's FHIR shape.
+router.post('/agent/manual', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const {
+      patientName,
+      patientDOB,
+      memberId,
+      diagnosis,
+      icd10Code,
+      medicationRequested,
+      clinicalNotes,
+      prescribingPhysician,
+      insurerId,
+    } = req.body;
+
+    const requiredFields = {
+      patientName,
+      patientDOB,
+      memberId,
+      diagnosis,
+      icd10Code,
+      medicationRequested,
+      clinicalNotes,
+      prescribingPhysician,
+      insurerId,
+    };
+    const missingFields = Object.entries(requiredFields)
+      .filter(([, value]) => typeof value !== 'string' || !value.trim())
+      .map(([field]) => field);
+
+    if (missingFields.length > 0) {
+      res.status(400).json({ error: 'Required manual intake fields are missing', missingFields });
+      return;
+    }
+
+    const patientId = `manual-${uuidv4()}`;
+    const medicationId = `${patientId}-medication`;
+    const patient = {
+      patientId,
+      name: patientName.trim(),
+      dateOfBirth: patientDOB.trim(),
+      gender: 'unknown',
+      memberId: memberId.trim(),
+    };
+    const medications = [{
+      resourceType: 'MedicationRequest' as const,
+      id: medicationId,
+      status: 'active',
+      medicationCodeableConcept: {
+        coding: [],
+        text: medicationRequested.trim(),
+      },
+      subject: { reference: `Patient/${patientId}` },
+      requester: { display: prescribingPhysician.trim() },
+      reasonCode: [{ text: clinicalNotes.trim() }],
+    }];
+    const conditions = [{
+      resourceType: 'Condition' as const,
+      id: `${patientId}-condition`,
+      clinicalStatus: { coding: [{ code: 'active' }] },
+      code: {
+        coding: [{
+          system: 'http://hl7.org/fhir/sid/icd-10-cm',
+          code: icd10Code.trim(),
+          display: diagnosis.trim(),
+        }],
+        text: diagnosis.trim(),
+      },
+    }];
+
+    const agentResult = await priorAuthAgentLoop.run({
+      patientId,
+      insurerId: insurerId.trim(),
+      medicationId,
+      clinicalData: { patient, medications, conditions },
+      onStatusUpdate: (tool, detail) => {
+        logger.info(`[Agent] Using tool: ${tool} — ${detail.slice(0, 100)}`);
+      },
+    });
+
+    const now = new Date().toISOString();
+    const response: PriorAuthRequest & { agentLog: typeof agentResult.agentLog; error?: string } = {
+      id: uuidv4(),
+      patientId,
+      medicationName: agentResult.form?.medicationRequested || medicationRequested.trim(),
+      medicationCode: '',
+      diagnosis: agentResult.form?.diagnosis || diagnosis.trim(),
+      diagnosisCode: agentResult.form?.icd10Code || icd10Code.trim(),
+      prescribingPhysician: agentResult.form?.prescribingPhysician || prescribingPhysician.trim(),
+      insurerId: insurerId.trim(),
+      status: agentResult.success ? 'submitted' : 'error',
+      createdAt: now,
+      updatedAt: now,
+      aiDraftForm: agentResult.form,
+      submissionResult: agentResult.submissionResult,
+      agentLog: agentResult.agentLog,
+      error: agentResult.error,
+    };
+
+    res.json(response);
+  } catch (err) {
+    next(err);
+  }
+});
 export default router;

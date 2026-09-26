@@ -96,6 +96,11 @@ interface AgentContext {
   patientId: string;
   insurerId: string;
   medicationId?: string;
+  clinicalData?: {
+    patient: PatientContext;
+    medications: FHIRMedication[];
+    conditions: FHIRCondition[];
+  };
   onStatusUpdate?: (status: string, detail: string) => void;
 }
 
@@ -142,10 +147,14 @@ export class PriorAuthAgentLoop {
     const agentLog: Array<{ role: string; content: string }> = [];
     const messages: AgentMessage[] = [];
 
+    const dataInstructions = context.clinicalData
+      ? 'Use the manually entered clinical data supplied through the tools. Do not fetch or infer any additional patient data.'
+      : 'Gather patient clinical data (demographics, medications, conditions) from FHIR';
+
     const systemPrompt = `You are PriorAgent, an autonomous AI agent that handles insurance prior authorization requests end-to-end.
 
 Your job:
-1. Gather patient clinical data (demographics, medications, conditions) from FHIR
+1. ${dataInstructions}
 2. Understand the insurer's specific requirements
 3. Draft a complete, accurate PA form based on the clinical evidence
 4. Validate completeness
@@ -157,8 +166,10 @@ ${context.medicationId ? `Target Medication ID: ${context.medicationId}` : ''}
 
 Be systematic. Use each tool in sequence. Never fabricate clinical data. If data is missing, note it clearly in the form. Always verify completeness before submitting.`;
 
-    const userMessage = `Please process a prior authorization request for patient ${context.patientId} with insurer ${context.insurerId}. 
-Complete the full workflow: gather records, draft the PA form, validate it, and submit it.`;
+    const userMessage = context.clinicalData
+      ? `Please process a prior authorization request using the supplied clinical data for patient ${context.patientId} with insurer ${context.insurerId}. Draft the PA form, validate it, and submit it.`
+      : `Please process a prior authorization request for patient ${context.patientId} with insurer ${context.insurerId}. 
+    Complete the full workflow: gather records, draft the PA form, validate it, and submit it.`;
 
     messages.push({ role: 'user', content: userMessage });
     agentLog.push({ role: 'user', content: userMessage });
@@ -273,14 +284,16 @@ Complete the full workflow: gather records, draft the PA form, validate it, and 
 
     switch (name) {
       case 'get_patient_context': {
-        const patient = await demoFHIRService.getPatient(input.patient_id as string);
+        const patient = _context.clinicalData?.patient
+          ?? await demoFHIRService.getPatient(input.patient_id as string);
         session.patient = patient;
         sessionCache.set(sessionId, session);
         return patient;
       }
 
       case 'get_medications': {
-        const meds = await demoFHIRService.getMedicationRequests(input.patient_id as string);
+        const meds = _context.clinicalData?.medications
+          ?? await demoFHIRService.getMedicationRequests(input.patient_id as string);
         session.medications = meds;
         sessionCache.set(sessionId, session);
         return meds.map(m => ({
@@ -292,7 +305,8 @@ Complete the full workflow: gather records, draft the PA form, validate it, and 
       }
 
       case 'get_conditions': {
-        const conditions = await demoFHIRService.getConditions(input.patient_id as string);
+        const conditions = _context.clinicalData?.conditions
+          ?? await demoFHIRService.getConditions(input.patient_id as string);
         session.conditions = conditions;
         sessionCache.set(sessionId, session);
         return conditions.map(c => ({
@@ -308,7 +322,8 @@ Complete the full workflow: gather records, draft the PA form, validate it, and 
       }
 
       case 'draft_pa_form': {
-        const snap = await demoFHIRService.getClinicalSnapshot(input.patient_id as string);
+        const snap = _context.clinicalData
+          ?? await demoFHIRService.getClinicalSnapshot(input.patient_id as string);
         const form = await openaiService.draftPriorAuthForm(
           snap.patient,
           snap.medications,

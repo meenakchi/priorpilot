@@ -78,7 +78,173 @@ interface Insurer {
   name: string;
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+interface ManualIntake {
+  patientName: string;
+  patientDOB: string;
+  memberId: string;
+  diagnosis: string;
+  icd10Code: string;
+  medicationRequested: string;
+  clinicalNotes: string;
+  prescribingPhysician: string;
+  insurerId: string;
+}
+
+  function WorkflowForm({
+    insurers,
+    onSubmit,
+    onManualSubmit,
+    loading,
+  }: {
+    insurers: Insurer[];
+    onSubmit: (patientId: string, insurerId: string) => void;
+    onManualSubmit: (intake: ManualIntake) => void;
+    loading: boolean;
+  }) {
+    const [mode, setMode] = useState<"epic" | "manual">("epic");
+    const [patientId, setPatientId] = useState(DEMO_PATIENTS[0].id);
+    const [insurerId, setInsurerId] = useState("");
+    const [manual, setManual] = useState({
+      patientName: "",
+      patientDOB: "",
+      memberId: "",
+      diagnosis: "",
+      icd10Code: "",
+      medicationRequested: "",
+      clinicalNotes: "",
+      prescribingPhysician: "",
+    });
+    const disabled = !insurerId || loading || (mode === "epic" && !patientId);
+    const updateManual = (field: keyof typeof manual, value: string) => {
+      setManual((current) => ({ ...current, [field]: value }));
+    };
+
+    return (
+      <form
+        style={cardStyle}
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (mode === "epic") onSubmit(patientId, insurerId);
+          else onManualSubmit({ ...manual, insurerId });
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "22px" }}>
+          <div style={{ width: "42px", height: "42px", background: "#fce7f3", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <svg width="20" height="20" fill="none" stroke="#9d174d" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+              <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2m-6 9l2 2 4-4" />
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontSize: "16px", fontWeight: "800", color: T.dark, fontFamily: T.serif }}>New Authorization</div>
+            <div style={{ fontSize: "12px", color: T.muted, marginTop: "1px" }}>AI handles everything else</div>
+          </div>
+        </div>
+
+        <div role="tablist" aria-label="Intake mode" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", border: `1.5px solid ${T.border}`, borderRadius: "10px", padding: "4px", gap: "4px", marginBottom: "20px", background: T.bg }}>
+          {([
+            ["epic", "Connect to Epic"],
+            ["manual", "Enter details manually"],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={mode === value}
+              onClick={() => setMode(value)}
+              style={{ border: "none", borderRadius: "7px", padding: "9px 7px", fontSize: "12px", lineHeight: 1.3, fontWeight: "700", color: mode === value ? "#fff" : T.muted, background: mode === value ? T.blue : "transparent", cursor: "pointer", fontFamily: T.sans }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {mode === "epic" ? (
+          <div style={{ marginBottom: "14px" }}>
+            <label style={labelStyle}>Patient</label>
+            <select value={patientId} onChange={(e) => setPatientId(e.target.value)} style={selectStyle}>
+              {DEMO_PATIENTS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+            </select>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "18px" }}>
+            <div>
+              <label style={labelStyle}>Patient name</label>
+              <input required value={manual.patientName} onChange={(e) => updateManual("patientName", e.target.value)} style={selectStyle} autoComplete="name" />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+              <div>
+                <label style={labelStyle}>Date of birth</label>
+                <input required type="date" value={manual.patientDOB} onChange={(e) => updateManual("patientDOB", e.target.value)} style={selectStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Member ID</label>
+                <input required value={manual.memberId} onChange={(e) => updateManual("memberId", e.target.value)} style={selectStyle} />
+              </div>
+            </div>
+            <div>
+              <label style={labelStyle}>Diagnosis</label>
+              <input required value={manual.diagnosis} onChange={(e) => updateManual("diagnosis", e.target.value)} style={selectStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>ICD-10 code</label>
+              <input required value={manual.icd10Code} onChange={(e) => updateManual("icd10Code", e.target.value)} style={selectStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Medication or procedure requested</label>
+              <input required value={manual.medicationRequested} onChange={(e) => updateManual("medicationRequested", e.target.value)} style={selectStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Relevant clinical notes</label>
+              <textarea required value={manual.clinicalNotes} onChange={(e) => updateManual("clinicalNotes", e.target.value)} style={{ ...selectStyle, minHeight: "100px", resize: "vertical", lineHeight: "1.5" }} />
+            </div>
+            <div>
+              <label style={labelStyle}>Prescribing clinician</label>
+              <input required value={manual.prescribingPhysician} onChange={(e) => updateManual("prescribingPhysician", e.target.value)} style={selectStyle} />
+            </div>
+          </div>
+        )}
+
+        <div style={{ marginBottom: "20px" }}>
+          <label style={labelStyle}>Insurance Provider</label>
+          <select value={insurerId} onChange={(e) => setInsurerId(e.target.value)} style={selectStyle} required>
+            <option value="">Select insurer</option>
+            {insurers.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
+          </select>
+        </div>
+
+        <button
+          type="submit"
+          disabled={disabled}
+          style={{
+            width: "100%",
+            background: disabled ? "#e0dbd0" : T.coral,
+            border: "none",
+            color: disabled ? "#aaa" : "#fff",
+            padding: "13px 20px",
+            borderRadius: "10px",
+            fontWeight: "700",
+            fontSize: "15px",
+            cursor: disabled ? "not-allowed" : "pointer",
+            fontFamily: T.sans,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "8px",
+            transition: "background 0.15s",
+          }}
+        >
+          {loading ? (
+            <><Spinner size="sm" /> Running workflow...</>
+          ) : (
+            <>
+              Run prior auth
+              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </>
+          )}
+        </button>
+      </form>
+    );
+  }
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL ?? "";
 const API = `${BACKEND}/api`;
@@ -526,90 +692,14 @@ function Hero({ onLogin }: { onLogin: () => void }) {
 }
 
 
-// ─── WorkflowForm ─────────────────────────────────────────────────────────────
-
-function WorkflowForm({
-  insurers,
-  onSubmit,
-  loading,
-}: {
-  insurers: Insurer[];
-  onSubmit: (patientId: string, insurerId: string) => void;
-  loading: boolean;
-}) {
-  const [patientId, setPatientId] = useState(DEMO_PATIENTS[0].id);
-  const [insurerId, setInsurerId] = useState("");
-  const disabled = !patientId || !insurerId || loading;
-
-  return (
-    <div style={cardStyle}>
-      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "22px" }}>
-        <div style={{ width: "42px", height: "42px", background: "#fce7f3", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <svg width="20" height="20" fill="none" stroke="#9d174d" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-          </svg>
-        </div>
-        <div>
-          <div style={{ fontSize: "16px", fontWeight: "800", color: T.dark, fontFamily: T.serif }}>New Authorization</div>
-          <div style={{ fontSize: "12px", color: T.muted, marginTop: "1px" }}>AI handles everything else</div>
-        </div>
-      </div>
-
-      <div style={{ marginBottom: "14px" }}>
-        <label style={labelStyle}>Patient</label>
-        <select value={patientId} onChange={(e) => setPatientId(e.target.value)} style={selectStyle}>
-          {DEMO_PATIENTS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-        </select>
-      </div>
-
-      <div style={{ marginBottom: "20px" }}>
-        <label style={labelStyle}>Insurance Provider</label>
-        <select value={insurerId} onChange={(e) => setInsurerId(e.target.value)} style={selectStyle}>
-          <option value="">Select insurer</option>
-          {insurers.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
-        </select>
-      </div>
-
-      <button
-        onClick={() => onSubmit(patientId, insurerId)}
-        disabled={disabled}
-        style={{
-          width: "100%",
-          background: disabled ? "#e0dbd0" : T.coral,
-          border: "none",
-          color: disabled ? "#aaa" : "#fff",
-          padding: "13px 20px",
-          borderRadius: "10px",
-          fontWeight: "700",
-          fontSize: "15px",
-          cursor: disabled ? "not-allowed" : "pointer",
-          fontFamily: T.sans,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "8px",
-          transition: "background 0.15s",
-        }}
-      >
-        {loading ? (
-          <><Spinner size="sm" /> Running workflow...</>
-        ) : (
-          <>
-            Run prior auth
-            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          </>
-        )}
-      </button>
-    </div>
-  );
-}
-
 // ─── WorkflowSteps ────────────────────────────────────────────────────────────
 
-function WorkflowSteps({ status }: { status: WorkflowStatus }) {
+function WorkflowSteps({ status, manual = false }: { status: WorkflowStatus; manual?: boolean }) {
   const steps = [
-    { key: "pending_consent",  label: "Patient Consent (CIBA)" },
-    { key: "fetching_records", label: "Fetch FHIR Records" },
+    ...(!manual ? [
+      { key: "pending_consent",  label: "Patient Consent (CIBA)" },
+      { key: "fetching_records", label: "Fetch FHIR Records" },
+    ] : []),
     { key: "analyzing",        label: "OpenAI Analysis" },
     { key: "draft_ready",      label: "Form Drafted" },
     { key: "submitted",        label: "Submitted to Insurer" },
@@ -888,6 +978,7 @@ function ConsentModal({ show, onClose }: { show: boolean; onClose: () => void })
 function Dashboard({ user }: { user: User }) {
   const [insurers, setInsurers]             = useState<Insurer[]>([]);
   const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatus>("idle");
+  const [workflowMode, setWorkflowMode]     = useState<"epic" | "manual">("epic");
   const [currentRequest, setCurrentRequest] = useState<PARequest | null>(null);
   const [history, setHistory]               = useState<PARequest[]>([]);
   const [loading, setLoading]               = useState(false);
@@ -907,6 +998,7 @@ function Dashboard({ user }: { user: User }) {
   }, []);
 
   const runWorkflow = async (patientId: string, insurerId: string) => {
+    setWorkflowMode("epic");
     setLoading(true);
     setCurrentRequest(null);
     setWorkflowStatus("pending_consent");
@@ -1017,6 +1109,43 @@ function Dashboard({ user }: { user: User }) {
     }
   };
 
+  const runManualWorkflow = async (intake: ManualIntake) => {
+    setWorkflowMode("manual");
+    setLoading(true);
+    setCurrentRequest(null);
+    setShowConsent(false);
+    setWorkflowStatus("analyzing");
+
+    try {
+      const result = await apiFetch<PARequest>("/prior-auth/agent/manual", {
+        method: "POST",
+        body: JSON.stringify(intake),
+      });
+      for (const status of ["analyzing", "draft_ready", "submitted"] as WorkflowStatus[]) {
+        setWorkflowStatus(status);
+        await sleep(400);
+      }
+      setCurrentRequest(result);
+      setWorkflowStatus(result.status as WorkflowStatus);
+      setHistory((prev) => [result, ...prev]);
+    } catch (err) {
+      const apiErr = err instanceof ApiError ? err : undefined;
+      setWorkflowStatus("error");
+      setCurrentRequest({
+        id: `error-${Date.now()}`,
+        patientId: "manual-entry",
+        medicationName: intake.medicationRequested,
+        diagnosis: intake.diagnosis,
+        insurerId: intake.insurerId,
+        status: "error",
+        createdAt: new Date().toISOString(),
+        error: apiErr?.message || "Could not reach the server. Please try again.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleLogout = () => { window.location.href = `${BACKEND}/api/auth/logout`; };
 
   return (
@@ -1083,8 +1212,8 @@ function Dashboard({ user }: { user: User }) {
 
           {/* Left column */}
           <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-            <WorkflowForm insurers={insurers} onSubmit={runWorkflow} loading={loading} />
-            {workflowStatus !== "idle" && <WorkflowSteps status={workflowStatus} />}
+            <WorkflowForm insurers={insurers} onSubmit={runWorkflow} onManualSubmit={runManualWorkflow} loading={loading} />
+            {workflowStatus !== "idle" && <WorkflowSteps status={workflowStatus} manual={workflowMode === "manual"} />}
             <RequestHistory requests={history} />
           </div>
 
